@@ -53,7 +53,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: GroqAgent }) {
 
   useEffect(() => {
     console.clear();
-    cfonts.say("GROK", {
+    cfonts.say("GROQ", {
       font: "3d",
       align: "left",
       colors: ["magenta", "gray"],
@@ -69,7 +69,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: GroqAgent }) {
     console.log("1. Ask questions, edit files, or run commands.");
     console.log("2. Be specific for the best results.");
     console.log(
-      "3. Create GROK.md files to customize your interactions with Groq."
+      "3. Create GROQ.md files to customize your interactions with Groq."
     );
     console.log("4. /help for more information.");
     console.log("");

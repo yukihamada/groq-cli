@@ -146,9 +146,16 @@ Current working directory: ${process.cwd()}`,
           toolRounds++;
 
           // Add assistant message with tool calls
+          // Clean up any malformed function call syntax in content
+          let cleanContent = assistantMessage.content || "";
+          // Remove any XML-style function tags
+          cleanContent = cleanContent.replace(/<function[^>]*>.*?<\/function>/gs, '');
+          cleanContent = cleanContent.replace(/<function[^>]*>/g, '');
+          cleanContent = cleanContent.trim();
+          
           const assistantEntry: ChatEntry = {
             type: "assistant",
-            content: assistantMessage.content || "Using tools to help you...",
+            content: cleanContent || (assistantMessage.tool_calls ? "Using tools to help you..." : ""),
             timestamp: new Date(),
             toolCalls: assistantMessage.tool_calls,
           };
@@ -159,7 +166,11 @@ Current working directory: ${process.cwd()}`,
           this.messages.push({
             role: "assistant",
             content: assistantMessage.content || "",
-            tool_calls: assistantMessage.tool_calls,
+            tool_calls: assistantMessage.tool_calls?.map(tc => ({
+              id: tc.id,
+              type: 'function' as const,
+              function: tc.function
+            })),
           } as any);
 
           // Execute tool calls
@@ -250,7 +261,8 @@ Current working directory: ${process.cwd()}`,
           }
         } else if (typeof acc[key] === "string" && typeof value === "string") {
           // Don't concatenate if this is within a tool call function object
-          if (key === "name" && acc.type === "function") {
+          if ((key === "name" || key === "arguments") && acc.type === "function") {
+            // For function name and arguments, replace instead of concatenate
             acc[key] = value;
           } else {
             (acc[key] as string) += value;
@@ -262,13 +274,38 @@ Current working directory: ${process.cwd()}`,
             accArray[i] = reduce(accArray[i], value[i]);
           }
         } else if (typeof acc[key] === "object" && typeof value === "object") {
-          acc[key] = reduce(acc[key], value);
+          // Special handling for function objects within tool_calls
+          if (key === "function" && acc[key] && value) {
+            // Don't recursively reduce function objects - handle them specially
+            const funcObj = acc[key] as any;
+            const valueObj = value as any;
+            if (valueObj.name !== undefined) funcObj.name = valueObj.name;
+            if (valueObj.arguments !== undefined) {
+              // Replace arguments instead of concatenating
+              funcObj.arguments = valueObj.arguments;
+            }
+          } else {
+            acc[key] = reduce(acc[key], value);
+          }
         }
       }
       return acc;
     };
 
-    return reduce(previous, item.choices[0]?.delta || {});
+    const result = reduce(previous, item.choices[0]?.delta || {});
+    
+    // Debug logging for tool calls
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      for (const tc of result.tool_calls) {
+        if (tc.function?.arguments && tc.function.arguments.length > 200) {
+          console.error("Warning: Large arguments detected for tool:", tc.function.name);
+          console.error("Arguments length:", tc.function.arguments.length);
+          console.error("First 100 chars:", tc.function.arguments.substring(0, 100));
+        }
+      }
+    }
+    
+    return result;
   }
 
   async *processUserMessageStream(
@@ -351,17 +388,24 @@ Current working directory: ${process.cwd()}`,
 
           // Stream content as it comes
           if (chunk.choices[0].delta?.content) {
-            accumulatedContent += chunk.choices[0].delta.content;
+            // Skip malformed function call content
+            const content = chunk.choices[0].delta.content;
+            if (!content.includes('<function') && !content.includes('</function>')) {
+              accumulatedContent += content;
+            }
 
             // Update token count in real-time
             const currentOutputTokens =
               this.tokenCounter.estimateStreamingTokens(accumulatedContent);
             totalOutputTokens = currentOutputTokens;
 
-            yield {
-              type: "content",
-              content: chunk.choices[0].delta.content,
-            };
+            // Only yield clean content
+            if (!content.includes('<function') && !content.includes('</function>')) {
+              yield {
+                type: "content",
+                content: content,
+              };
+            }
 
             // Emit token count update
             yield {
@@ -372,9 +416,16 @@ Current working directory: ${process.cwd()}`,
         }
 
         // Add assistant entry to history
+        // Clean up any malformed function call syntax in content
+        let cleanContent = accumulatedMessage.content || "";
+        // Remove any XML-style function tags
+        cleanContent = cleanContent.replace(/<function[^>]*>.*?<\/function>/gs, '');
+        cleanContent = cleanContent.replace(/<function[^>]*>/g, '');
+        cleanContent = cleanContent.trim();
+        
         const assistantEntry: ChatEntry = {
           type: "assistant",
-          content: accumulatedMessage.content || "Using tools to help you...",
+          content: cleanContent || (accumulatedMessage.tool_calls ? "Using tools to help you..." : ""),
           timestamp: new Date(),
           toolCalls: accumulatedMessage.tool_calls || undefined,
         };
@@ -384,7 +435,11 @@ Current working directory: ${process.cwd()}`,
         this.messages.push({
           role: "assistant",
           content: accumulatedMessage.content || "",
-          tool_calls: accumulatedMessage.tool_calls,
+          tool_calls: accumulatedMessage.tool_calls?.map(tc => ({
+            id: tc.id,
+            type: 'function' as const,
+            function: tc.function
+          })),
         } as any);
 
         // Handle tool calls if present
@@ -487,7 +542,38 @@ Current working directory: ${process.cwd()}`,
 
   private async executeTool(toolCall: GroqToolCall): Promise<ToolResult> {
     try {
-      const args = JSON.parse(toolCall.function.arguments);
+      let args: any;
+      try {
+        args = JSON.parse(toolCall.function.arguments);
+      } catch (parseError: any) {
+        console.error("Failed to parse tool arguments:", toolCall.function.arguments);
+        console.error("Tool name:", toolCall.function.name);
+        console.error("Parse error:", parseError.message);
+        console.error("Raw arguments:", toolCall.function.arguments);
+        console.error("Arguments length:", toolCall.function.arguments.length);
+        
+        // Try to clean up the arguments if they have extra content
+        let cleanedArgs = toolCall.function.arguments;
+        // Remove any trailing non-JSON content
+        const lastBrace = cleanedArgs.lastIndexOf('}');
+        if (lastBrace !== -1 && lastBrace < cleanedArgs.length - 1) {
+          cleanedArgs = cleanedArgs.substring(0, lastBrace + 1);
+          try {
+            args = JSON.parse(cleanedArgs);
+            console.log("Successfully parsed cleaned arguments");
+          } catch (secondError) {
+            return {
+              success: false,
+              error: `Invalid JSON in tool arguments: ${parseError.message}`
+            };
+          }
+        } else {
+          return {
+            success: false,
+            error: `Invalid JSON in tool arguments: ${parseError.message}`
+          };
+        }
+      }
 
       switch (toolCall.function.name) {
         case "view_file":

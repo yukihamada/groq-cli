@@ -240,23 +240,30 @@ Available models: ${modelNames.join(", ")}`,
         switch (chunk.type) {
           case "content":
             if (chunk.content) {
-              if (!streamingEntry) {
-                const newStreamingEntry = {
-                  type: "assistant" as const,
-                  content: chunk.content,
-                  timestamp: new Date(),
-                  isStreaming: true,
-                };
-                setChatHistory((prev) => [...prev, newStreamingEntry]);
-                streamingEntry = newStreamingEntry;
-              } else {
-                setChatHistory((prev) =>
-                  prev.map((entry, idx) =>
-                    idx === prev.length - 1 && entry.isStreaming
-                      ? { ...entry, content: entry.content + chunk.content }
-                      : entry
-                  )
-                );
+              // Filter out malformed function calls
+              const cleanContent = chunk.content
+                .replace(/<function[^>]*>.*?<\/function>/gs, '')
+                .replace(/<function[^>]*>/g, '');
+              
+              if (cleanContent) {
+                if (!streamingEntry) {
+                  const newStreamingEntry = {
+                    type: "assistant" as const,
+                    content: cleanContent,
+                    timestamp: new Date(),
+                    isStreaming: true,
+                  };
+                  setChatHistory((prev) => [...prev, newStreamingEntry]);
+                  streamingEntry = newStreamingEntry;
+                } else {
+                  setChatHistory((prev) =>
+                    prev.map((entry, idx) =>
+                      idx === prev.length - 1 && entry.isStreaming
+                        ? { ...entry, content: entry.content + cleanContent }
+                        : entry
+                    )
+                  );
+                }
               }
             }
             break;
@@ -272,7 +279,15 @@ Available models: ${modelNames.join(", ")}`,
               // Stop streaming for the current assistant message
               setChatHistory((prev) =>
                 prev.map((entry) =>
-                  entry.isStreaming ? { ...entry, isStreaming: false, toolCalls: chunk.toolCalls } : entry
+                  entry.isStreaming ? { 
+                    ...entry, 
+                    isStreaming: false, 
+                    toolCalls: chunk.toolCalls,
+                    content: entry.content
+                      .replace(/<function[^>]*>.*?<\/function>/gs, '')
+                      .replace(/<function[^>]*>/g, '')
+                      .trim()
+                  } : entry
                 )
               );
               streamingEntry = null;
@@ -305,7 +320,14 @@ Available models: ${modelNames.join(", ")}`,
             if (streamingEntry) {
               setChatHistory((prev) =>
                 prev.map((entry) =>
-                  entry.isStreaming ? { ...entry, isStreaming: false } : entry
+                  entry.isStreaming ? { 
+                    ...entry, 
+                    isStreaming: false,
+                    content: entry.content
+                      .replace(/<function[^>]*>.*?<\/function>/gs, '')
+                      .replace(/<function[^>]*>/g, '')
+                      .trim()
+                  } : entry
                 )
               );
             }

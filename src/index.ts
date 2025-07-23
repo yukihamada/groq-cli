@@ -37,13 +37,13 @@ function loadApiKey(): string | undefined {
 }
 
 program
-  .name("grok")
+  .name("groq")
   .description(
-    "A conversational AI CLI tool powered by Groq-3 with text editor capabilities"
+    "A conversational AI CLI tool powered by Groq with text editor capabilities"
   )
   .version("1.0.0")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
-  .option("-k, --api-key <key>", "Groq API key (or set GROK_API_KEY env var)")
+  .option("-k, --api-key <key>", "Groq API key (or set GROQ_API_KEY env var)")
   .option("--no-tty-check", "Skip TTY check (for debugging only)")
   .option("--force-tty", "Force TTY mode (for debugging only)")
   .action((options) => {
