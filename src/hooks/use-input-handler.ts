@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useInput, useApp } from "ink";
-import { GrokAgent, ChatEntry } from "../agent/grok-agent";
+import { GroqAgent, ChatEntry } from "../agent/grok-agent";
 import { ConfirmationService } from "../utils/confirmation-service";
 
 interface UseInputHandlerProps {
-  agent: GrokAgent;
+  agent: GroqAgent;
   chatHistory: ChatEntry[];
   setChatHistory: React.Dispatch<React.SetStateAction<ChatEntry[]>>;
   setIsProcessing: (processing: boolean) => void;
@@ -45,21 +45,44 @@ export function useInputHandler({
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [showModelSelection, setShowModelSelection] = useState(false);
   const [selectedModelIndex, setSelectedModelIndex] = useState(0);
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const { exit } = useApp();
 
   const commandSuggestions: CommandSuggestion[] = [
     { command: "/help", description: "Show help information" },
     { command: "/clear", description: "Clear chat history" },
-    { command: "/models", description: "Switch Grok Model" },
+    { command: "/models", description: "Switch Groq Model" },
     { command: "/exit", description: "Exit the application" },
   ];
 
-  const availableModels: ModelOption[] = [
-    { model: "grok-4-latest", description: "Latest Grok-4 model (most capable)" },
-    { model: "grok-3-latest", description: "Latest Grok-3 model" },
-    { model: "grok-3-fast", description: "Fast Grok-3 variant" },
-    { model: "grok-3-mini-fast", description: "Fastest Grok-3 variant" }
-  ];
+  // Fetch models when /models command is triggered
+  const fetchModels = async () => {
+    try {
+      setIsProcessing(true);
+      const models = await agent.fetchModels();
+      const modelOptions = models.map(model => ({
+        model: model.id,
+        description: `Model: ${model.id}`
+      }));
+      setAvailableModels(modelOptions);
+      setIsProcessing(false);
+    } catch (error: any) {
+      setIsProcessing(false);
+      const errorEntry: ChatEntry = {
+        type: "assistant",
+        content: `Error fetching models: ${error.message}`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, errorEntry]);
+    }
+  };
+
+  // Fetch models when /models command is triggered
+  useEffect(() => {
+    if (showModelSelection && availableModels.length === 0) {
+      fetchModels();
+    }
+  }, [showModelSelection]);
 
   const handleDirectCommand = async (input: string): Promise<boolean> => {
     const trimmedInput = input.trim();
@@ -86,12 +109,12 @@ export function useInputHandler({
     if (trimmedInput === "/help") {
       const helpEntry: ChatEntry = {
         type: "assistant",
-        content: `Grok CLI Help:
+        content: `Groq CLI Help:
 
 Built-in Commands:
   /clear      - Clear chat history
   /help       - Show this help
-  /models     - Switch Grok models
+  /models     - Switch Groq models
   /exit       - Exit application
   exit, quit  - Exit application
 
@@ -304,7 +327,9 @@ Available models: ${modelNames.join(", ")}`,
     processingStartTime.current = 0;
   };
 
-  useInput(async (inputChar: string, key: any) => {
+  // Only use useInput if stdin supports raw mode
+  if (process.stdin.isTTY && process.stdin.setRawMode) {
+    useInput(async (inputChar: string, key: any) => {
     // Don't handle input if confirmation dialog is active
     if (isConfirmationActive) {
       return;
@@ -433,6 +458,7 @@ Available models: ${modelNames.join(", ")}`,
       }
     }
   });
+  }
 
   return {
     input,

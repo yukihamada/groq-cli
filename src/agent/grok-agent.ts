@@ -1,5 +1,5 @@
-import { GrokClient, GrokMessage, GrokToolCall } from "../grok/client";
-import { GROK_TOOLS } from "../grok/tools";
+import { GroqClient, GroqMessage, GroqToolCall } from "../groq/groq-client";
+import { GROK_TOOLS } from "../groq/groq-tools";
 import { TextEditorTool, BashTool, TodoTool, ConfirmationTool } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
@@ -10,8 +10,8 @@ export interface ChatEntry {
   type: "user" | "assistant" | "tool_result";
   content: string;
   timestamp: Date;
-  toolCalls?: GrokToolCall[];
-  toolCall?: GrokToolCall;
+  toolCalls?: GroqToolCall[];
+  toolCall?: GroqToolCall;
   toolResult?: { success: boolean; output?: string; error?: string };
   isStreaming?: boolean;
 }
@@ -19,26 +19,26 @@ export interface ChatEntry {
 export interface StreamingChunk {
   type: "content" | "tool_calls" | "tool_result" | "done" | "token_count";
   content?: string;
-  toolCalls?: GrokToolCall[];
-  toolCall?: GrokToolCall;
+  toolCalls?: GroqToolCall[];
+  toolCall?: GroqToolCall;
   toolResult?: ToolResult;
   tokenCount?: number;
 }
 
-export class GrokAgent extends EventEmitter {
-  private grokClient: GrokClient;
+export class GroqAgent extends EventEmitter {
+  private grokClient: GroqClient;
   private textEditor: TextEditorTool;
   private bash: BashTool;
   private todoTool: TodoTool;
   private confirmationTool: ConfirmationTool;
   private chatHistory: ChatEntry[] = [];
-  private messages: GrokMessage[] = [];
+  private messages: GroqMessage[] = [];
   private tokenCounter: TokenCounter;
   private abortController: AbortController | null = null;
 
   constructor(apiKey: string) {
     super();
-    this.grokClient = new GrokClient(apiKey);
+    this.grokClient = new GroqClient(apiKey);
     this.textEditor = new TextEditorTool();
     this.bash = new BashTool();
     this.todoTool = new TodoTool();
@@ -54,7 +54,7 @@ export class GrokAgent extends EventEmitter {
     // Initialize with system message
     this.messages.push({
       role: "system",
-      content: `You are Grok CLI, an AI assistant that helps with file editing, coding tasks, and system operations.${customInstructionsSection}
+      content: `You are Groq CLI, an AI assistant that helps with file editing, coding tasks, and system operations.${customInstructionsSection}
 
 You have access to these tools:
 - view_file: View file contents or directory listings
@@ -135,7 +135,7 @@ Current working directory: ${process.cwd()}`,
         const assistantMessage = currentResponse.choices[0]?.message;
 
         if (!assistantMessage) {
-          throw new Error("No response from Grok");
+          throw new Error("No response from Groq");
         }
 
         // Handle tool calls
@@ -185,7 +185,8 @@ Current working directory: ${process.cwd()}`,
                 ? result.output || "Success"
                 : result.error || "Error",
               tool_call_id: toolCall.id,
-            });
+              name: toolCall.function.name,
+            } as any);
           }
 
           // Get next response - this might contain more tool calls
@@ -248,7 +249,12 @@ Current working directory: ${process.cwd()}`,
             }
           }
         } else if (typeof acc[key] === "string" && typeof value === "string") {
-          (acc[key] as string) += value;
+          // Don't concatenate if this is within a tool call function object
+          if (key === "name" && acc.type === "function") {
+            acc[key] = value;
+          } else {
+            (acc[key] as string) += value;
+          }
         } else if (Array.isArray(acc[key]) && Array.isArray(value)) {
           const accArray = acc[key] as any[];
           for (let i = 0; i < value.length; i++) {
@@ -431,7 +437,8 @@ Current working directory: ${process.cwd()}`,
                 ? result.output || "Success"
                 : result.error || "Error",
               tool_call_id: toolCall.id,
-            });
+              name: toolCall.function.name,
+            } as any);
           }
 
           // Continue the loop to get the next response (which might have more tool calls)
@@ -478,7 +485,7 @@ Current working directory: ${process.cwd()}`,
     }
   }
 
-  private async executeTool(toolCall: GrokToolCall): Promise<ToolResult> {
+  private async executeTool(toolCall: GroqToolCall): Promise<ToolResult> {
     try {
       const args = JSON.parse(toolCall.function.arguments);
 
@@ -547,8 +554,19 @@ Current working directory: ${process.cwd()}`,
   }
 
   abortCurrentOperation(): void {
-    if (this.abortController) {
-      this.abortController.abort();
+    // TODO: Implement abort operation
+  }
+
+  async fetchModels(): Promise<any[]> {
+    const models = await this.grokClient.fetchModels();
+    // Logic to set the default model to the latest or most capable
+    if (models.length > 0) {
+      // Simple heuristic: choose the model with the latest creation date or a known high-performance model
+      const latestModel = models.reduce((prev, curr) => {
+        return curr.created > prev.created ? curr : prev;
+      }, models[0]);
+      this.setModel(latestModel.id);
     }
+    return models;
   }
 }

@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { Box, Text, useInput, useApp } from "ink";
-import { GrokAgent } from "../../agent/grok-agent";
+import { GroqAgent } from "../../agent/grok-agent";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
 interface ApiKeyInputProps {
-  onApiKeySet: (agent: GrokAgent) => void;
+  onApiKeySet: (agent: GroqAgent) => void;
 }
 
 interface UserSettings {
@@ -55,10 +55,10 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
     setIsSubmitting(true);
     try {
       const apiKey = input.trim();
-      const agent = new GrokAgent(apiKey);
+      const agent = new GroqAgent(apiKey);
       
       // Set environment variable for current process
-      process.env.GROK_API_KEY = apiKey;
+      process.env.GROQ_API_KEY = apiKey;
       
       // Save to .grok/user-settings.json
       try {
@@ -106,9 +106,9 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
 
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
-      <Text color="yellow">🔑 Grok API Key Required</Text>
+      <Text color="yellow">🔑 Groq API Key Required</Text>
       <Box marginBottom={1}>
-        <Text color="gray">Please enter your Grok API key to continue:</Text>
+        <Text color="gray">Please enter your Groq API key to continue:</Text>
       </Box>
       
       <Box borderStyle="round" borderColor="blue" paddingX={1} marginBottom={1}>

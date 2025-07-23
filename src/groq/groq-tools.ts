@@ -1,6 +1,6 @@
-import { GrokTool } from './client';
+import { GroqTool } from './groq-client';
 
-export const GROK_TOOLS: GrokTool[] = [
+export const GROK_TOOLS: GroqTool[] = [
   {
     type: 'function',
     function: {
