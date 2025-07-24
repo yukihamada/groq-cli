@@ -81,32 +81,37 @@ function ChatInterfaceWithAgent({ agent, sessionOptions }: { agent: GroqAgent; s
       console.log("4. /help for more information.");
       
       // Handle session loading
-      if (sessionOptions?.continueSession) {
-        const session = await sessionManager.current.getLastSession();
-        if (session) {
-          console.log(`\nContinuing session from ${session.updatedAt.toLocaleString()}`);
-          agent.loadSession(session);
-          setChatHistory(agent.getChatHistory());
+      try {
+        if (sessionOptions?.continueSession) {
+          const session = await sessionManager.current.getLastSession();
+          if (session) {
+            console.log(`\nContinuing session from ${session.updatedAt.toLocaleString()}`);
+            agent.loadSession(session);
+            setChatHistory(agent.getChatHistory());
+          } else {
+            console.log("\nNo previous session found. Starting new session.");
+            const newSession = await sessionManager.current.createSession();
+            agent.setSessionManager(sessionManager.current, newSession);
+          }
+        } else if (sessionOptions?.resumeSessionId) {
+          const session = await sessionManager.current.loadSession(sessionOptions.resumeSessionId);
+          if (session) {
+            console.log(`\nResuming session: ${session.title || session.id}`);
+            agent.loadSession(session);
+            setChatHistory(agent.getChatHistory());
+          } else {
+            console.log(`\nSession not found: ${sessionOptions.resumeSessionId}. Starting new session.`);
+            const newSession = await sessionManager.current.createSession();
+            agent.setSessionManager(sessionManager.current, newSession);
+          }
         } else {
-          console.log("\nNo previous session found. Starting new session.");
+          // Create new session
           const newSession = await sessionManager.current.createSession();
           agent.setSessionManager(sessionManager.current, newSession);
         }
-      } else if (sessionOptions?.resumeSessionId) {
-        const session = await sessionManager.current.loadSession(sessionOptions.resumeSessionId);
-        if (session) {
-          console.log(`\nResuming session: ${session.title || session.id}`);
-          agent.loadSession(session);
-          setChatHistory(agent.getChatHistory());
-        } else {
-          console.log(`\nSession not found: ${sessionOptions.resumeSessionId}. Starting new session.`);
-          const newSession = await sessionManager.current.createSession();
-          agent.setSessionManager(sessionManager.current, newSession);
-        }
-      } else {
-        // Create new session
-        const newSession = await sessionManager.current.createSession();
-        agent.setSessionManager(sessionManager.current, newSession);
+      } catch (error) {
+        console.error("Error initializing session:", error);
+        // Continue without session management if there's an error
       }
       
       console.log("");

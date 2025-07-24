@@ -29,7 +29,8 @@ export class SessionManager {
   constructor() {
     const homeDir = os.homedir();
     this.sessionsDir = path.join(homeDir, '.groq', 'sessions');
-    this.ensureSessionsDirectory();
+    // Create directory synchronously in constructor
+    fs.ensureDirSync(this.sessionsDir);
   }
 
   private async ensureSessionsDirectory(): Promise<void> {
@@ -51,6 +52,7 @@ export class SessionManager {
   }
 
   async saveSession(session: Session): Promise<void> {
+    await this.ensureSessionsDirectory(); // Ensure directory exists
     const sessionPath = path.join(this.sessionsDir, `${session.id}.json`);
     session.updatedAt = new Date();
     await fs.writeJson(sessionPath, session, { spaces: 2 });
