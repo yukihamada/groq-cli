@@ -4,7 +4,7 @@ import React from "react";
 import { render } from "ink";
 import { program } from "commander";
 import * as dotenv from "dotenv";
-import { GroqAgent } from "./agent/grok-agent";
+import { GroqAgent } from "./agent/groq-agent";
 import ChatInterface from "./ui/components/chat-interface";
 import * as fs from "fs";
 import * as path from "path";

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Box, Text } from "ink";
-import { GroqAgent, ChatEntry } from "../../agent/grok-agent";
+import { GroqAgent, ChatEntry } from "../../agent/groq-agent";
 import { useInputHandler } from "../../hooks/use-input-handler";
 import { LoadingSpinner } from "./loading-spinner";
 import { CommandSuggestions } from "./command-suggestions";

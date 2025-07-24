@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Box, Text, useInput, useApp } from "ink";
-import { GroqAgent } from "../../agent/grok-agent";
+import { GroqAgent } from "../../agent/groq-agent";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";

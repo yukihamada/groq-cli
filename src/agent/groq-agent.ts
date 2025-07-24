@@ -1,5 +1,5 @@
 import { GroqClient, GroqMessage, GroqToolCall } from "../groq/groq-client";
-import { GROK_TOOLS } from "../groq/groq-tools";
+import { GROQ_TOOLS } from "../groq/groq-tools";
 import { TextEditorTool, BashTool, TodoTool, ConfirmationTool, WebTool } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
@@ -27,7 +27,7 @@ export interface StreamingChunk {
 }
 
 export class GroqAgent extends EventEmitter {
-  private grokClient: GroqClient;
+  private groqClient: GroqClient;
   private textEditor: TextEditorTool;
   private bash: BashTool;
   private todoTool: TodoTool;
@@ -42,13 +42,13 @@ export class GroqAgent extends EventEmitter {
 
   constructor(apiKey: string) {
     super();
-    this.grokClient = new GroqClient(apiKey);
+    this.groqClient = new GroqClient(apiKey);
     this.textEditor = new TextEditorTool();
     this.bash = new BashTool();
     this.todoTool = new TodoTool();
     this.confirmationTool = new ConfirmationTool();
     this.webTool = new WebTool();
-    this.tokenCounter = createTokenCounter("grok-4-latest");
+    this.tokenCounter = createTokenCounter("llama-3.3-70b-versatile");
 
     // Load custom instructions
     const customInstructions = loadCustomInstructions();
@@ -133,9 +133,9 @@ Current working directory: ${process.cwd()}`,
     let toolRounds = 0;
 
     try {
-      let currentResponse = await this.grokClient.chat(
+      let currentResponse = await this.groqClient.chat(
         this.messages,
-        GROK_TOOLS
+        GROQ_TOOLS
       );
 
       // Agent loop - continue until no more tool calls or max rounds reached
@@ -220,9 +220,9 @@ Current working directory: ${process.cwd()}`,
           }
 
           // Get next response - this might contain more tool calls
-          currentResponse = await this.grokClient.chat(
+          currentResponse = await this.groqClient.chat(
             this.messages,
-            GROK_TOOLS
+            GROQ_TOOLS
           );
         } else {
           // No more tool calls, add final response
@@ -383,7 +383,7 @@ Current working directory: ${process.cwd()}`,
         }
 
         // Stream response and accumulate
-        const stream = this.grokClient.chatStream(this.messages, GROK_TOOLS);
+        const stream = this.groqClient.chatStream(this.messages, GROQ_TOOLS);
         let accumulatedMessage: any = {};
         let accumulatedContent = "";
         let toolCallsYielded = false;
@@ -679,11 +679,11 @@ Current working directory: ${process.cwd()}`,
   }
 
   getCurrentModel(): string {
-    return this.grokClient.getCurrentModel();
+    return this.groqClient.getCurrentModel();
   }
 
   setModel(model: string): void {
-    this.grokClient.setModel(model);
+    this.groqClient.setModel(model);
     // Update token counter for new model
     this.tokenCounter.dispose();
     this.tokenCounter = createTokenCounter(model);
@@ -694,7 +694,7 @@ Current working directory: ${process.cwd()}`,
   }
 
   async fetchModels(): Promise<any[]> {
-    const models = await this.grokClient.fetchModels();
+    const models = await this.groqClient.fetchModels();
     // Logic to set the default model to the latest or most capable
     if (models.length > 0) {
       // Simple heuristic: choose the model with the latest creation date or a known high-performance model

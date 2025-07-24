@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useInput, useApp } from "ink";
-import { GroqAgent, ChatEntry } from "../agent/grok-agent";
+import { GroqAgent, ChatEntry } from "../agent/groq-agent";
 import { ConfirmationService } from "../utils/confirmation-service";
 
 interface UseInputHandlerProps {
