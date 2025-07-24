@@ -187,5 +187,27 @@ export const GROQ_TOOLS: GroqTool[] = [
         required: ['url']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description: 'Search the web for information using DuckDuckGo',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query'
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of results to return (default: 5)',
+            default: 5
+          }
+        },
+        required: ['query']
+      }
+    }
   }
 ];

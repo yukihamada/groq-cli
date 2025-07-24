@@ -120,6 +120,7 @@ echo "Explain quantum computing" | groq -p --json
 - `/help` - Show available commands
 - `/clear` - Clear chat history
 - `/models` - Switch between Groq models
+- `/search <query>` - Search the web for information
 - `/tree` - Show directory structure
 - `/add-dir <path>` - Add directory contents to context
 - `/summary` - Summarize current conversation
@@ -175,6 +176,7 @@ Instead of typing commands, just tell Groq what you want to do:
 - ✅ Session management (`-c`, `--continue`, `--resume`)
 - ✅ Unix pipe support (`echo "test" | groq -p`)
 - ✅ Web fetch capabilities (`web_fetch` tool)
+- ✅ Web search functionality (`web_search` tool, `/search` command)
 - ✅ Advanced slash commands (`/tree`, `/add-dir`, `/summary`)
 - ✅ Custom instructions (`.groq/GROQ.md`)
 - ✅ File operations and bash commands

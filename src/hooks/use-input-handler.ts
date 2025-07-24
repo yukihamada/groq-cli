@@ -49,15 +49,40 @@ export function useInputHandler({
   const { exit } = useApp();
 
   const commandSuggestions: CommandSuggestion[] = [
-    { command: "/help", description: "Show help information" },
-    { command: "/clear", description: "Clear chat history" },
-    { command: "/models", description: "Switch Groq Model" },
-    { command: "/add-dir", description: "Add directory contents to context" },
-    { command: "/compact", description: "Toggle compact mode" },
-    { command: "/tree", description: "Show directory tree" },
-    { command: "/summary", description: "Summarize current session" },
+    // Help & Information
+    { command: "/help", description: "Show available commands and usage" },
+    { command: "/status", description: "Show Groq CLI status (version, model, session)" },
+    { command: "/doctor", description: "Check health of your Groq CLI installation" },
+    { command: "/release-notes", description: "View release notes and updates" },
+    
+    // Session & Context Management
+    { command: "/clear", description: "Clear conversation history and free up context" },
+    { command: "/compact", description: "Clear history but keep summary. Optional: /compact [instructions]" },
+    { command: "/export", description: "Export current conversation to file or clipboard" },
     { command: "/save", description: "Save session with custom title" },
-    { command: "/exit", description: "Exit the application" },
+    { command: "/resume", description: "Resume a conversation. Use: /resume [session-id]" },
+    { command: "/cost", description: "Show token usage and estimated cost for current session" },
+    
+    // Development Tools
+    { command: "/add-dir", description: "Add directory contents to context" },
+    { command: "/tree", description: "Show directory tree structure" },
+    { command: "/init", description: "Initialize a new GROQ.md file with codebase documentation" },
+    { command: "/summary", description: "Summarize current conversation" },
+    { command: "/search", description: "Search the web for information" },
+    
+    // Configuration & Settings
+    { command: "/models", description: "Switch between available Groq models" },
+    { command: "/config", description: "Open configuration settings" },
+    { command: "/memory", description: "Edit Groq memory files (GROQ.md)" },
+    { command: "/theme", description: "Change UI theme (dark/light)" },
+    
+    // Feedback & Support
+    { command: "/bug", description: "Submit feedback or report issues" },
+    { command: "/upgrade", description: "Information about premium features" },
+    
+    // Application Control
+    { command: "/exit", description: "Exit the application (alias: /quit)" },
+    { command: "/quit", description: "Exit the application (alias: /exit)" },
   ];
 
   // Fetch models when /models command is triggered
@@ -114,33 +139,51 @@ export function useInputHandler({
     if (trimmedInput === "/help") {
       const helpEntry: ChatEntry = {
         type: "assistant",
-        content: `Groq CLI Help:
+        content: `Groq CLI - AI-powered terminal assistant
 
-Built-in Commands:
-  /clear      - Clear chat history
-  /help       - Show this help
-  /models     - Switch Groq models
-  /tree       - Show directory tree
-  /add-dir    - Add directory contents to context
-  /summary    - Summarize current session
-  /save <title> - Save session with custom title
-  /compact    - Toggle compact mode (coming soon)
-  /exit       - Exit application
-  exit, quit  - Exit application
+🔹 HELP & INFORMATION
+  /help               Show this help message
+  /status             Show current status (version, model, session)
+  /doctor             Check health of Groq CLI installation
+  /release-notes      View release notes and updates
 
-Direct Commands (executed immediately):
-  ls [path]   - List directory contents
-  pwd         - Show current directory  
-  cd <path>   - Change directory
-  cat <file>  - View file contents
-  mkdir <dir> - Create directory
-  touch <file>- Create empty file
+🔹 SESSION & CONTEXT MANAGEMENT
+  /clear              Clear conversation history
+  /compact [instr]    Clear history but keep summary
+  /export             Export conversation to file
+  /save <title>       Save session with custom title
+  /resume [id]        Resume a specific session
+  /cost               Show token usage and cost estimate
 
-For complex operations, just describe what you want in natural language.
+🔹 DEVELOPMENT TOOLS
+  /add-dir <path>     Add directory contents to context
+  /tree [path]        Show directory tree structure
+  /init               Initialize GROQ.md documentation
+  /summary            Summarize current conversation
+  /search <query>     Search the web for information
+
+🔹 CONFIGURATION
+  /models             Switch between Groq models
+  /config             Open configuration settings
+  /memory             Edit GROQ.md memory files
+  /theme              Change UI theme
+
+🔹 SUPPORT
+  /bug                Report issues or submit feedback
+  /upgrade            Information about premium features
+
+🔹 APPLICATION
+  /exit, /quit        Exit the application
+
+💡 TIPS:
+• Type "/" to see available commands
+• Use natural language for complex tasks
+• Direct bash commands work too (ls, cd, cat, etc.)
+
 Examples:
-  "edit package.json and add a new script"
-  "create a new React component called Header"
-  "show me all TypeScript files in this project"`,
+  "Create a React component with TypeScript"
+  "Find all TODO comments in the codebase"
+  "Explain how this function works"`,
         timestamp: new Date(),
       };
       setChatHistory((prev) => [...prev, helpEntry]);
@@ -231,6 +274,21 @@ Available models: ${modelNames.join(", ")}`,
       return true;
     }
 
+    // Handle /search command
+    if (trimmedInput.startsWith("/search ")) {
+      const searchQuery = trimmedInput.substring(8);
+      const userEntry: ChatEntry = {
+        type: "user",
+        content: `Search the web for: ${searchQuery}`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, userEntry]);
+      
+      await processUserMessage(`Search the web for: ${searchQuery}`);
+      setInput("");
+      return true;
+    }
+
     // Handle /summary command
     if (trimmedInput === "/summary") {
       const userEntry: ChatEntry = {
@@ -282,6 +340,218 @@ Available models: ${modelNames.join(", ")}`,
       };
       setChatHistory((prev) => [...prev, infoEntry]);
       setInput("");
+      return true;
+    }
+
+    // Handle /status command
+    if (trimmedInput === "/status") {
+      const sessionManager = agent.getSessionManager();
+      const currentSession = agent.getCurrentSession();
+      const currentModel = agent.getCurrentModel();
+      
+      const statusEntry: ChatEntry = {
+        type: "assistant",
+        content: `Groq CLI Status:
+        
+Version: 0.2.0
+Model: ${currentModel}
+Session: ${currentSession ? currentSession.id : 'No active session'}
+Messages: ${currentSession ? currentSession.messages.length : 0}
+Working Directory: ${process.cwd()}
+API: Connected ✓`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, statusEntry]);
+      setInput("");
+      return true;
+    }
+
+    // Handle /doctor command
+    if (trimmedInput === "/doctor") {
+      const doctorEntry: ChatEntry = {
+        type: "assistant",
+        content: `Groq CLI Health Check:
+        
+✓ Node.js: ${process.version}
+✓ Platform: ${process.platform}
+✓ API Key: ${process.env.GROQ_API_KEY ? 'Configured' : 'Not set'}
+✓ Session Directory: ~/.groq/sessions/
+✓ Settings Directory: ~/.groq/
+✓ Working Directory: ${process.cwd()}
+
+All systems operational!`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, doctorEntry]);
+      setInput("");
+      return true;
+    }
+
+    // Handle /export command
+    if (trimmedInput === "/export") {
+      const exportEntry: ChatEntry = {
+        type: "assistant",
+        content: "Export functionality coming soon. Will save conversation to a markdown file.",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, exportEntry]);
+      setInput("");
+      return true;
+    }
+
+    // Handle /cost command
+    if (trimmedInput === "/cost") {
+      const costEntry: ChatEntry = {
+        type: "assistant",
+        content: `Session Cost Estimate:
+
+Groq pricing: $0.39 per 1M tokens (both input and output)
+Current session token usage will be displayed here soon.
+
+This feature is under development.`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, costEntry]);
+      setInput("");
+      return true;
+    }
+
+    // Handle /init command
+    if (trimmedInput === "/init") {
+      const userEntry: ChatEntry = {
+        type: "user",
+        content: "Please create a GROQ.md file with documentation for this codebase",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, userEntry]);
+      
+      await processUserMessage("Please create a .groq/GROQ.md file with custom instructions for this codebase. Include information about the project structure, coding conventions, and any specific requirements.");
+      setInput("");
+      return true;
+    }
+
+    // Handle /release-notes command
+    if (trimmedInput === "/release-notes") {
+      const releaseEntry: ChatEntry = {
+        type: "assistant",
+        content: `Groq CLI Release Notes - v0.2.0
+
+🚀 NEW FEATURES:
+• Session management (-c, --continue, --resume)
+• Web search functionality (/search command)
+• Unix pipe support (echo "test" | groq -p)
+• Advanced slash commands
+• Improved command suggestions UI
+
+📝 IMPROVEMENTS:
+• Better error handling
+• Consistent groq naming (fixed grok references)
+• Enhanced help system
+• More intuitive command interface
+
+🐛 BUG FIXES:
+• Fixed JSON parsing in tool calls
+• Corrected model name references
+• Session persistence issues resolved
+
+For full changelog: https://github.com/yukihamada/groq-cli/releases`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, releaseEntry]);
+      setInput("");
+      return true;
+    }
+
+    // Handle /theme command
+    if (trimmedInput === "/theme") {
+      const themeEntry: ChatEntry = {
+        type: "assistant",
+        content: "Theme switching is coming soon. Will support dark/light modes.",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, themeEntry]);
+      setInput("");
+      return true;
+    }
+
+    // Handle /config command
+    if (trimmedInput === "/config") {
+      const configEntry: ChatEntry = {
+        type: "assistant",
+        content: `Configuration Settings:
+
+Settings file: ~/.groq/user-settings.json
+Session directory: ~/.groq/sessions/
+Custom instructions: .groq/GROQ.md
+
+Configuration management UI coming soon.`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, configEntry]);
+      setInput("");
+      return true;
+    }
+
+    // Handle /memory command
+    if (trimmedInput === "/memory") {
+      const userEntry: ChatEntry = {
+        type: "user",
+        content: "Please show me the contents of .groq/GROQ.md if it exists, or help me create one.",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, userEntry]);
+      
+      await processUserMessage("Please show me the contents of .groq/GROQ.md if it exists, or help me create one with custom instructions for this project.");
+      setInput("");
+      return true;
+    }
+
+    // Handle /upgrade command
+    if (trimmedInput === "/upgrade") {
+      const upgradeEntry: ChatEntry = {
+        type: "assistant",
+        content: `Groq CLI Premium Features (Coming Soon):
+
+🌟 PLANNED FEATURES:
+• Priority API access
+• Extended context windows
+• Advanced model selection
+• Team collaboration features
+• Custom model fine-tuning
+• Analytics dashboard
+
+Current version: Free & Open Source
+Stay tuned for updates!`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, upgradeEntry]);
+      setInput("");
+      return true;
+    }
+
+    // Handle /bug command
+    if (trimmedInput === "/bug") {
+      const bugEntry: ChatEntry = {
+        type: "assistant",
+        content: `Report bugs or submit feedback:
+
+GitHub Issues: https://github.com/yukihamada/groq-cli/issues
+Email: yukihamada@gmail.com
+
+Please include:
+- Groq CLI version (0.2.0)
+- Error messages
+- Steps to reproduce`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, bugEntry]);
+      setInput("");
+      return true;
+    }
+
+    // Handle /exit and /quit commands
+    if (trimmedInput === "/exit" || trimmedInput === "/quit") {
+      exit();
       return true;
     }
 

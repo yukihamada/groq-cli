@@ -1,6 +1,6 @@
 import { GroqClient, GroqMessage, GroqToolCall } from "../groq/groq-client";
 import { GROQ_TOOLS } from "../groq/groq-tools";
-import { TextEditorTool, BashTool, TodoTool, ConfirmationTool, WebTool } from "../tools";
+import { TextEditorTool, BashTool, TodoTool, ConfirmationTool, WebTool, WebSearchTool } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
 import { createTokenCounter, TokenCounter } from "../utils/token-counter";
@@ -33,6 +33,7 @@ export class GroqAgent extends EventEmitter {
   private todoTool: TodoTool;
   private confirmationTool: ConfirmationTool;
   private webTool: WebTool;
+  private webSearchTool: WebSearchTool;
   private chatHistory: ChatEntry[] = [];
   private messages: GroqMessage[] = [];
   private tokenCounter: TokenCounter;
@@ -48,6 +49,7 @@ export class GroqAgent extends EventEmitter {
     this.todoTool = new TodoTool();
     this.confirmationTool = new ConfirmationTool();
     this.webTool = new WebTool();
+    this.webSearchTool = new WebSearchTool();
     this.tokenCounter = createTokenCounter("llama-3.3-70b-versatile");
 
     // Load custom instructions
@@ -68,7 +70,8 @@ You have access to these tools:
 - bash: Execute bash commands (use for searching, file discovery, navigation, and system operations)
 - create_todo_list: Create a visual todo list for planning and tracking tasks
 - update_todo_list: Update existing todos in your todo list
-- web_fetch: Fetch content from URLs (web pages, APIs, etc.)
+- web_fetch: Fetch content from specific URLs (web pages, APIs, etc.)
+- web_search: Search the web for current information when needed
 
 IMPORTANT TOOL USAGE RULES:
 - NEVER use create_file on files that already exist - this will overwrite them completely
@@ -89,6 +92,12 @@ When a user asks you to edit, update, modify, or change an existing file:
 
 When a user asks you to create a new file that doesn't exist:
 1. Use create_file with the full content
+
+WEB SEARCH GUIDANCE:
+- Use web_search when users ask about current events, latest information, or topics beyond your knowledge cutoff
+- Keywords that indicate web search: "latest", "current", "news", "today", "recent", "2024", "2025", etc.
+- For specific website content, use web_fetch with the exact URL
+- For general information searches, use web_search to find relevant sources
 
 TASK PLANNING WITH TODO LISTS:
 - For complex requests with multiple steps, ALWAYS create a todo list first to plan your approach
@@ -114,6 +123,17 @@ IMPORTANT RESPONSE GUIDELINES:
 
 Current working directory: ${process.cwd()}`,
     });
+  }
+
+  private needsWebSearch(message: string): boolean {
+    const webSearchKeywords = [
+      'latest', 'current', 'news', 'today', 'recent',
+      '2024', '2025', 'search for', 'find information about',
+      'what is happening', 'update on', 'trending'
+    ];
+    
+    const lowerMessage = message.toLowerCase();
+    return webSearchKeywords.some(keyword => lowerMessage.includes(keyword));
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
@@ -651,6 +671,9 @@ Current working directory: ${process.cwd()}`,
 
         case "web_fetch":
           return await this.webTool.fetch(args.url);
+
+        case "web_search":
+          return await this.webSearchTool.search(args.query, args.limit);
 
         default:
           return {
