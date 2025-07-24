@@ -63,6 +63,8 @@ export class GroqAgent extends EventEmitter {
       role: "system",
       content: `You are Groq CLI, an AI assistant that helps with file editing, coding tasks, and system operations.${customInstructionsSection}
 
+CRITICAL: When using tools, you MUST follow the exact format specified. Never combine tool names with parameters in a single string.
+
 You have access to these tools:
 - view_file: View file contents or directory listings
 - create_file: Create new files with content (ONLY use this for files that don't exist yet)
@@ -137,6 +139,15 @@ Current working directory: ${process.cwd()}`,
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
+    // Preprocess message for better tool usage with Japanese input
+    let processedMessage = message;
+    
+    // Common Japanese patterns that might cause issues
+    if (message.includes("何がある") || message.includes("プロジェクト") || message.includes("ファイル")) {
+      // Add explicit instruction for listing files
+      processedMessage = message + "\n\nPlease use the bash tool with appropriate commands like 'ls' or 'find' to explore the directory structure.";
+    }
+    
     // Add user message to conversation
     const userEntry: ChatEntry = {
       type: "user",
@@ -144,7 +155,7 @@ Current working directory: ${process.cwd()}`,
       timestamp: new Date(),
     };
     this.chatHistory.push(userEntry);
-    const userMessage = { role: "user" as const, content: message };
+    const userMessage = { role: "user" as const, content: processedMessage };
     this.messages.push(userMessage);
     await this.saveToSession(userMessage);
 
@@ -272,9 +283,19 @@ Current working directory: ${process.cwd()}`,
 
       return newEntries;
     } catch (error: any) {
+      // Add more detailed error logging
+      console.error("Error in processUserMessage:", error);
+      
+      // Check if this is a malformed tool call error
+      let errorMessage = error.message;
+      if (error.message.includes("tool call validation failed") && error.message.includes("which was not request.tools")) {
+        errorMessage = "The AI model returned a malformed response. This can happen with certain prompts. Please try rephrasing your request or use simpler language.";
+        console.error("Malformed tool call detected in response");
+      }
+      
       const errorEntry: ChatEntry = {
         type: "assistant",
-        content: `Sorry, I encountered an error: ${error.message}`,
+        content: `Sorry, I encountered an error: ${errorMessage}`,
         timestamp: new Date(),
       };
       this.chatHistory.push(errorEntry);

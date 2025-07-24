@@ -43,7 +43,7 @@ program
   .description(
     "A conversational AI CLI tool powered by Groq with text editor capabilities"
   )
-  .version("0.2.5")
+  .version("0.2.6")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
   .option("-k, --api-key <key>", "Groq API key (or set GROQ_API_KEY env var)")
   .option("-c, --continue", "continue last session")
