@@ -632,7 +632,9 @@ Current working directory: ${process.cwd()}`,
           return await this.webTool.fetch(args.url);
 
         case "web_search":
-          return await this.webSearchTool.search(args.query, args.limit);
+          // Ensure limit is a number (AI sometimes passes it as string)
+          const searchLimit = args.limit ? Number(args.limit) : 5;
+          return await this.webSearchTool.search(args.query, searchLimit);
 
         default:
           return {
