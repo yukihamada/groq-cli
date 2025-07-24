@@ -11,13 +11,18 @@ import ConfirmationDialog from "./confirmation-dialog";
 import { ConfirmationService, ConfirmationOptions } from "../../utils/confirmation-service";
 import ApiKeyInput from "./api-key-input";
 import cfonts from "cfonts";
+import { SessionManager } from "../../utils/session-manager";
 
 interface ChatInterfaceProps {
   agent?: GroqAgent;
+  sessionOptions?: {
+    continueSession?: boolean;
+    resumeSessionId?: string;
+  };
 }
 
 // Main chat component that handles input when agent is available
-function ChatInterfaceWithAgent({ agent }: { agent: GroqAgent }) {
+function ChatInterfaceWithAgent({ agent, sessionOptions }: { agent: GroqAgent; sessionOptions?: { continueSession?: boolean; resumeSessionId?: string } }) {
   const [chatHistory, setChatHistory] = useState<ChatEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingTime, setProcessingTime] = useState(0);
@@ -26,6 +31,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: GroqAgent }) {
   const [confirmationOptions, setConfirmationOptions] = useState<ConfirmationOptions | null>(null);
   const scrollRef = useRef<any>();
   const processingStartTime = useRef<number>(0);
+  const sessionManager = useRef<SessionManager>(new SessionManager());
   
   const confirmationService = ConfirmationService.getInstance();
 
@@ -52,30 +58,62 @@ function ChatInterfaceWithAgent({ agent }: { agent: GroqAgent }) {
   });
 
   useEffect(() => {
-    console.clear();
-    cfonts.say("GROQ", {
-      font: "3d",
-      align: "left",
-      colors: ["magenta", "gray"],
-      space: true,
-      maxLength: "0",
-      gradient: ["magenta", "cyan"],
-      independentGradient: false,
-      transitionGradient: true,
-      env: "node",
-    });
+    const initializeSession = async () => {
+      console.clear();
+      cfonts.say("GROQ", {
+        font: "3d",
+        align: "left",
+        colors: ["magenta", "gray"],
+        space: true,
+        maxLength: "0",
+        gradient: ["magenta", "cyan"],
+        independentGradient: false,
+        transitionGradient: true,
+        env: "node",
+      });
 
-    console.log("Tips for getting started:");
-    console.log("1. Ask questions, edit files, or run commands.");
-    console.log("2. Be specific for the best results.");
-    console.log(
-      "3. Create GROQ.md files to customize your interactions with Groq."
-    );
-    console.log("4. /help for more information.");
-    console.log("");
+      console.log("Tips for getting started:");
+      console.log("1. Ask questions, edit files, or run commands.");
+      console.log("2. Be specific for the best results.");
+      console.log(
+        "3. Create GROQ.md files to customize your interactions with Groq."
+      );
+      console.log("4. /help for more information.");
+      
+      // Handle session loading
+      if (sessionOptions?.continueSession) {
+        const session = await sessionManager.current.getLastSession();
+        if (session) {
+          console.log(`\nContinuing session from ${session.updatedAt.toLocaleString()}`);
+          agent.loadSession(session);
+          setChatHistory(agent.getChatHistory());
+        } else {
+          console.log("\nNo previous session found. Starting new session.");
+          const newSession = await sessionManager.current.createSession();
+          agent.setSessionManager(sessionManager.current, newSession);
+        }
+      } else if (sessionOptions?.resumeSessionId) {
+        const session = await sessionManager.current.loadSession(sessionOptions.resumeSessionId);
+        if (session) {
+          console.log(`\nResuming session: ${session.title || session.id}`);
+          agent.loadSession(session);
+          setChatHistory(agent.getChatHistory());
+        } else {
+          console.log(`\nSession not found: ${sessionOptions.resumeSessionId}. Starting new session.`);
+          const newSession = await sessionManager.current.createSession();
+          agent.setSessionManager(sessionManager.current, newSession);
+        }
+      } else {
+        // Create new session
+        const newSession = await sessionManager.current.createSession();
+        agent.setSessionManager(sessionManager.current, newSession);
+      }
+      
+      console.log("");
+    };
 
-    setChatHistory([]);
-  }, []);
+    initializeSession();
+  }, [agent, sessionOptions]);
 
   useEffect(() => {
     const handleConfirmationRequest = (options: ConfirmationOptions) => {
@@ -184,7 +222,7 @@ function ChatInterfaceWithAgent({ agent }: { agent: GroqAgent }) {
 }
 
 // Main component that handles API key input or chat interface
-export default function ChatInterface({ agent }: ChatInterfaceProps) {
+export default function ChatInterface({ agent, sessionOptions }: ChatInterfaceProps) {
   const [currentAgent, setCurrentAgent] = useState<GroqAgent | null>(agent || null);
 
   const handleApiKeySet = (newAgent: GroqAgent) => {
@@ -192,8 +230,8 @@ export default function ChatInterface({ agent }: ChatInterfaceProps) {
   };
 
   if (!currentAgent) {
-    return <ApiKeyInput onApiKeySet={handleApiKeySet} />;
+    return <ApiKeyInput onApiKeySet={handleApiKeySet} sessionOptions={sessionOptions} />;
   }
 
-  return <ChatInterfaceWithAgent agent={currentAgent} />;
+  return <ChatInterfaceWithAgent agent={currentAgent} sessionOptions={sessionOptions} />;
 }

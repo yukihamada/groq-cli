@@ -9,6 +9,8 @@ import ChatInterface from "./ui/components/chat-interface";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { SessionManager } from "./utils/session-manager";
+import { formatDistanceToNow } from 'date-fns';
 
 // Load environment variables
 dotenv.config();
@@ -44,9 +46,40 @@ program
   .version("1.0.0")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
   .option("-k, --api-key <key>", "Groq API key (or set GROQ_API_KEY env var)")
+  .option("-c, --continue", "continue last session")
+  .option("--resume <id>", "resume specific session by ID")
+  .option("--list", "list all sessions")
+  .option("-p, --print <prompt>", "headless mode - print response and exit")
+  .option("--json", "output in JSON format (use with -p)")
   .option("--no-tty-check", "Skip TTY check (for debugging only)")
   .option("--force-tty", "Force TTY mode (for debugging only)")
-  .action((options) => {
+  .action(async (options) => {
+    // Handle session listing
+    if (options.list) {
+      const sessionManager = new SessionManager();
+      const sessions = await sessionManager.listSessions();
+      
+      if (sessions.length === 0) {
+        console.log("No sessions found.");
+      } else {
+        console.log("\nAvailable sessions:");
+        console.log("==================\n");
+        
+        sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+        
+        for (const session of sessions) {
+          const age = formatDistanceToNow(session.updatedAt, { addSuffix: true });
+          console.log(`ID: ${session.id}`);
+          console.log(`Title: ${session.title}`);
+          console.log(`Messages: ${session.messageCount}`);
+          console.log(`Last updated: ${age}`);
+          console.log(`Directory: ${session.workingDirectory}`);
+          console.log("---\n");
+        }
+      }
+      process.exit(0);
+    }
+    
     if (options.directory) {
       try {
         process.chdir(options.directory);
@@ -55,6 +88,60 @@ program
           `Error changing directory to ${options.directory}:`,
           error.message
         );
+        process.exit(1);
+      }
+    }
+
+    // Get API key
+    const apiKey = options.apiKey || loadApiKey();
+    if (!apiKey) {
+      console.error("❌ Error: No API key provided.");
+      console.error("Please set GROQ_API_KEY environment variable or use -k option.");
+      process.exit(1);
+    }
+    
+    const agent = new GroqAgent(apiKey);
+    
+    // Handle headless mode
+    if (options.print) {
+      let inputContent = options.print;
+      
+      // Read from stdin if available
+      if (!process.stdin.isTTY) {
+        const chunks: Buffer[] = [];
+        for await (const chunk of process.stdin) {
+          chunks.push(chunk);
+        }
+        const stdinContent = Buffer.concat(chunks).toString();
+        if (stdinContent) {
+          inputContent = stdinContent + "\n\n" + inputContent;
+        }
+      }
+      
+      try {
+        const entries = await agent.processUserMessage(inputContent);
+        const response = entries.find(e => e.type === 'assistant');
+        
+        if (options.json) {
+          console.log(JSON.stringify({
+            prompt: inputContent,
+            response: response?.content || '',
+            timestamp: new Date().toISOString()
+          }));
+        } else {
+          console.log(response?.content || 'No response generated.');
+        }
+        
+        process.exit(0);
+      } catch (error: any) {
+        if (options.json) {
+          console.log(JSON.stringify({
+            error: error.message,
+            timestamp: new Date().toISOString()
+          }));
+        } else {
+          console.error("Error:", error.message);
+        }
         process.exit(1);
       }
     }
@@ -69,12 +156,17 @@ program
       }
 
       // Get API key from options, environment, or user settings
-      const apiKey = options.apiKey || loadApiKey();
-      const agent = apiKey ? new GroqAgent(apiKey) : undefined;
+      // This block is now handled earlier in the action
 
       console.log("🤖 Starting Groq CLI Conversational Assistant...\n");
+      
+      // Session management options
+      const sessionOptions = {
+        continueSession: options.continue,
+        resumeSessionId: options.resume
+      };
 
-      render(React.createElement(ChatInterface, { agent }), {
+      render(React.createElement(ChatInterface, { agent, sessionOptions }), {
         stdin: process.stdin,
         stdout: process.stdout,
         stderr: process.stderr,

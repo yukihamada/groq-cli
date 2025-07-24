@@ -1,4 +1,4 @@
-# Groq CLI
+# Groq CLI: A conversational AI CLI tool
 
 A conversational AI CLI tool powered by Groq with intelligent text editor capabilities and tool usage.
 

@@ -7,6 +7,10 @@ import * as os from "os";
 
 interface ApiKeyInputProps {
   onApiKeySet: (agent: GroqAgent) => void;
+  sessionOptions?: {
+    continueSession?: boolean;
+    resumeSessionId?: string;
+  };
 }
 
 interface UserSettings {
@@ -60,15 +64,15 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
       // Set environment variable for current process
       process.env.GROQ_API_KEY = apiKey;
       
-      // Save to .grok/user-settings.json
+      // Save to .groq/user-settings.json
       try {
         const homeDir = os.homedir();
-        const grokDir = path.join(homeDir, '.grok');
-        const settingsFile = path.join(grokDir, 'user-settings.json');
+        const groqDir = path.join(homeDir, '.groq');
+        const settingsFile = path.join(groqDir, 'user-settings.json');
         
-        // Create .grok directory if it doesn't exist
-        if (!fs.existsSync(grokDir)) {
-          fs.mkdirSync(grokDir, { mode: 0o700 });
+        // Create .groq directory if it doesn't exist
+        if (!fs.existsSync(groqDir)) {
+          fs.mkdirSync(groqDir, { mode: 0o700 });
         }
         
         // Load existing settings or create new
@@ -87,7 +91,7 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
         // Save settings
         fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2), { mode: 0o600 });
         
-        console.log(`\n✅ API key saved to ~/.grok/user-settings.json`);
+        console.log(`\n✅ API key saved to ~/.groq/user-settings.json`);
       } catch (error) {
         console.log('\n⚠️ Could not save API key to settings file');
         console.log('API key set for current session only');
@@ -125,7 +129,7 @@ export default function ApiKeyInput({ onApiKeySet }: ApiKeyInputProps) {
       <Box flexDirection="column" marginTop={1}>
         <Text color="gray" dimColor>• Press Enter to submit</Text>
         <Text color="gray" dimColor>• Press Ctrl+C to exit</Text>
-        <Text color="gray" dimColor>Note: API key will be saved to ~/.grok/user-settings.json</Text>
+        <Text color="gray" dimColor>Note: API key will be saved to ~/.groq/user-settings.json</Text>
       </Box>
 
       {isSubmitting ? (

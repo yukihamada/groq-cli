@@ -5,6 +5,7 @@ import { ToolResult } from "../types";
 import { EventEmitter } from "events";
 import { createTokenCounter, TokenCounter } from "../utils/token-counter";
 import { loadCustomInstructions } from "../utils/custom-instructions";
+import { SessionManager, Session } from "../utils/session-manager";
 
 export interface ChatEntry {
   type: "user" | "assistant" | "tool_result";
@@ -35,6 +36,8 @@ export class GroqAgent extends EventEmitter {
   private messages: GroqMessage[] = [];
   private tokenCounter: TokenCounter;
   private abortController: AbortController | null = null;
+  private sessionManager: SessionManager | null = null;
+  private currentSession: Session | null = null;
 
   constructor(apiKey: string) {
     super();
@@ -118,7 +121,9 @@ Current working directory: ${process.cwd()}`,
       timestamp: new Date(),
     };
     this.chatHistory.push(userEntry);
-    this.messages.push({ role: "user", content: message });
+    const userMessage = { role: "user" as const, content: message };
+    this.messages.push(userMessage);
+    await this.saveToSession(userMessage);
 
     const newEntries: ChatEntry[] = [userEntry];
     const maxToolRounds = 10; // Prevent infinite loops
@@ -144,6 +149,13 @@ Current working directory: ${process.cwd()}`,
           assistantMessage.tool_calls.length > 0
         ) {
           toolRounds++;
+          
+          // Debug log the raw assistant message
+          console.error("DEBUG: Raw assistant message with tool calls:", JSON.stringify({
+            role: assistantMessage.role,
+            content: assistantMessage.content,
+            tool_calls: assistantMessage.tool_calls
+          }, null, 2));
 
           // Add assistant message with tool calls
           // Clean up any malformed function call syntax in content
@@ -163,15 +175,17 @@ Current working directory: ${process.cwd()}`,
           newEntries.push(assistantEntry);
 
           // Add assistant message to conversation
-          this.messages.push({
-            role: "assistant",
+          const assistantMsg = {
+            role: "assistant" as const,
             content: assistantMessage.content || "",
             tool_calls: assistantMessage.tool_calls?.map(tc => ({
               id: tc.id,
               type: 'function' as const,
               function: tc.function
             })),
-          } as any);
+          } as any;
+          this.messages.push(assistantMsg);
+          await this.saveToSession(assistantMsg);
 
           // Execute tool calls
           for (const toolCall of assistantMessage.tool_calls) {
@@ -190,14 +204,16 @@ Current working directory: ${process.cwd()}`,
             newEntries.push(toolResultEntry);
 
             // Add tool result to messages with proper format (needed for AI context)
-            this.messages.push({
-              role: "tool",
+            const toolMsg = {
+              role: "tool" as const,
               content: result.success
                 ? result.output || "Success"
                 : result.error || "Error",
               tool_call_id: toolCall.id,
               name: toolCall.function.name,
-            } as any);
+            } as any;
+            this.messages.push(toolMsg);
+            await this.saveToSession(toolMsg);
           }
 
           // Get next response - this might contain more tool calls
@@ -215,10 +231,12 @@ Current working directory: ${process.cwd()}`,
             timestamp: new Date(),
           };
           this.chatHistory.push(finalEntry);
-          this.messages.push({
-            role: "assistant",
+          const finalMsg = {
+            role: "assistant" as const,
             content: assistantMessage.content || "",
-          });
+          };
+          this.messages.push(finalMsg);
+          await this.saveToSession(finalMsg);
           newEntries.push(finalEntry);
           break; // Exit the loop
         }
@@ -297,6 +315,16 @@ Current working directory: ${process.cwd()}`,
     // Debug logging for tool calls
     if (result.tool_calls && result.tool_calls.length > 0) {
       for (const tc of result.tool_calls) {
+        // Log all tool calls for debugging
+        console.error("Tool call detected:", {
+          id: tc.id,
+          type: tc.type,
+          function: {
+            name: tc.function?.name,
+            arguments: tc.function?.arguments
+          }
+        });
+        
         if (tc.function?.arguments && tc.function.arguments.length > 200) {
           console.error("Warning: Large arguments detected for tool:", tc.function.name);
           console.error("Arguments length:", tc.function.arguments.length);
@@ -321,7 +349,9 @@ Current working directory: ${process.cwd()}`,
       timestamp: new Date(),
     };
     this.chatHistory.push(userEntry);
-    this.messages.push({ role: "user", content: message });
+    const userMessage = { role: "user" as const, content: message };
+    this.messages.push(userMessage);
+    await this.saveToSession(userMessage);
 
     // Calculate input tokens
     const inputTokens = this.tokenCounter.countMessageTokens(
@@ -432,15 +462,17 @@ Current working directory: ${process.cwd()}`,
         this.chatHistory.push(assistantEntry);
 
         // Add accumulated message to conversation
-        this.messages.push({
-          role: "assistant",
+        const assistantMsg = {
+          role: "assistant" as const,
           content: accumulatedMessage.content || "",
           tool_calls: accumulatedMessage.tool_calls?.map(tc => ({
             id: tc.id,
             type: 'function' as const,
             function: tc.function
           })),
-        } as any);
+        } as any;
+        this.messages.push(assistantMsg);
+        await this.saveToSession(assistantMsg);
 
         // Handle tool calls if present
         if (accumulatedMessage.tool_calls?.length > 0) {
@@ -486,14 +518,16 @@ Current working directory: ${process.cwd()}`,
             };
 
             // Add tool result with proper format (needed for AI context)
-            this.messages.push({
-              role: "tool",
+            const toolMsg = {
+              role: "tool" as const,
               content: result.success
                 ? result.output || "Success"
                 : result.error || "Error",
               tool_call_id: toolCall.id,
               name: toolCall.function.name,
-            } as any);
+            } as any;
+            this.messages.push(toolMsg);
+            await this.saveToSession(toolMsg);
           }
 
           // Continue the loop to get the next response (which might have more tool calls)
@@ -542,6 +576,16 @@ Current working directory: ${process.cwd()}`,
 
   private async executeTool(toolCall: GroqToolCall): Promise<ToolResult> {
     try {
+      // Debug log the tool call
+      console.error("DEBUG: Executing tool call:", JSON.stringify({
+        id: toolCall.id,
+        type: toolCall.type,
+        function: {
+          name: toolCall.function.name,
+          arguments: toolCall.function.arguments
+        }
+      }, null, 2));
+      
       let args: any;
       try {
         args = JSON.parse(toolCall.function.arguments);
@@ -654,5 +698,60 @@ Current working directory: ${process.cwd()}`,
       this.setModel(latestModel.id);
     }
     return models;
+  }
+
+  // Session management methods
+  setSessionManager(sessionManager: SessionManager, session: Session): void {
+    this.sessionManager = sessionManager;
+    this.currentSession = session;
+  }
+
+  async loadSession(session: Session): Promise<void> {
+    this.currentSession = session;
+    
+    // Save the current system message
+    const systemMessage = this.messages.find(msg => msg.role === 'system');
+    
+    // Clear existing history and messages
+    this.chatHistory = [];
+    this.messages = [];
+    
+    // Restore system message first
+    if (systemMessage) {
+      this.messages.push(systemMessage);
+    }
+    
+    // Restore messages from session
+    for (const msg of session.messages) {
+      this.messages.push(msg);
+      
+      // Rebuild chat history from messages
+      if (msg.role === 'user') {
+        this.chatHistory.push({
+          type: 'user',
+          content: msg.content as string,
+          timestamp: new Date(),
+        });
+      } else if (msg.role === 'assistant') {
+        this.chatHistory.push({
+          type: 'assistant',
+          content: msg.content as string,
+          timestamp: new Date(),
+          toolCalls: msg.tool_calls as any,
+        });
+      } else if (msg.role === 'tool') {
+        this.chatHistory.push({
+          type: 'tool_result',
+          content: msg.content as string,
+          timestamp: new Date(),
+        });
+      }
+    }
+  }
+
+  private async saveToSession(message: GroqMessage): Promise<void> {
+    if (this.sessionManager && this.currentSession) {
+      await this.sessionManager.addMessageToCurrentSession(message);
+    }
   }
 }
