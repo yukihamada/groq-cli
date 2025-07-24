@@ -1,5 +1,5 @@
 {
-  "name": "@vibe-kit/groq-cli",
+  "name": "groq-ai-cli",
   "version": "0.0.2",
   "description": "An open-source AI agent that brings the power of Groq directly into your terminal.",
   "main": "dist/index.js",
@@ -11,17 +11,31 @@
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
   },
   "keywords": [
     "cli",
     "agent",
     "text-editor",
-    "grok",
-    "ai"
+    "groq",
+    "ai",
+    "llm",
+    "assistant",
+    "terminal"
   ],
-  "author": "Your Name",
+  "author": "Yuki Hamada <yukihamada@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yukihamada/groq-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yukihamada/groq-cli/issues"
+  },
+  "homepage": "https://github.com/yukihamada/groq-cli#readme",
   "dependencies": {
     "axios": "^1.6.0",
     "cfonts": "^3.3.0",
@@ -42,9 +56,12 @@
     "@types/react": "^17.0.0",
     "@typescript-eslint/eslint-plugin": "^8.37.0",
     "@typescript-eslint/parser": "^8.37.0",
+    "@vitest/ui": "^3.2.4",
     "eslint": "^9.31.0",
+    "happy-dom": "^18.0.1",
     "tsx": "^4.0.0",
-    "typescript": "^4.9.5"
+    "typescript": "^4.9.5",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=16.0.0"

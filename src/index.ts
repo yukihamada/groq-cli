@@ -22,7 +22,7 @@ function loadApiKey(): string | undefined {
     // Try to load from user settings file
     try {
       const homeDir = os.homedir();
-      const settingsFile = path.join(homeDir, '.grok', 'user-settings.json');
+      const settingsFile = path.join(homeDir, '.groq', 'user-settings.json');
       
       if (fs.existsSync(settingsFile)) {
         const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
