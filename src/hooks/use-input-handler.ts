@@ -52,6 +52,11 @@ export function useInputHandler({
     { command: "/help", description: "Show help information" },
     { command: "/clear", description: "Clear chat history" },
     { command: "/models", description: "Switch Groq Model" },
+    { command: "/add-dir", description: "Add directory contents to context" },
+    { command: "/compact", description: "Toggle compact mode" },
+    { command: "/tree", description: "Show directory tree" },
+    { command: "/summary", description: "Summarize current session" },
+    { command: "/save", description: "Save session with custom title" },
     { command: "/exit", description: "Exit the application" },
   ];
 
@@ -115,6 +120,11 @@ Built-in Commands:
   /clear      - Clear chat history
   /help       - Show this help
   /models     - Switch Groq models
+  /tree       - Show directory tree
+  /add-dir    - Add directory contents to context
+  /summary    - Summarize current session
+  /save <title> - Save session with custom title
+  /compact    - Toggle compact mode (coming soon)
   /exit       - Exit application
   exit, quit  - Exit application
 
@@ -168,6 +178,109 @@ Available models: ${modelNames.join(", ")}`,
         setChatHistory((prev) => [...prev, errorEntry]);
       }
 
+      setInput("");
+      return true;
+    }
+
+    // Handle /tree command
+    if (trimmedInput === "/tree" || trimmedInput.startsWith("/tree ")) {
+      const path = trimmedInput === "/tree" ? "." : trimmedInput.substring(6);
+      const userEntry: ChatEntry = {
+        type: "user",
+        content: trimmedInput,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, userEntry]);
+      
+      try {
+        const result = await agent.executeBashCommand(`find ${path} -type d -name .git -prune -o -type f -print | head -100 | sort`);
+        const treeEntry: ChatEntry = {
+          type: "assistant",
+          content: result.success 
+            ? `Directory structure:\n\`\`\`\n${result.output}\n\`\`\``
+            : `Error: ${result.error}`,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, treeEntry]);
+      } catch (error: any) {
+        const errorEntry: ChatEntry = {
+          type: "assistant",
+          content: `Error getting directory tree: ${error.message}`,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, errorEntry]);
+      }
+      
+      setInput("");
+      return true;
+    }
+
+    // Handle /add-dir command
+    if (trimmedInput.startsWith("/add-dir ")) {
+      const dirPath = trimmedInput.substring(9);
+      const userEntry: ChatEntry = {
+        type: "user",
+        content: `Please analyze all files in the directory: ${dirPath}`,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, userEntry]);
+      
+      // Let the AI handle the directory analysis using its tools
+      await processUserMessage(`Please analyze all files in the directory: ${dirPath}`);
+      setInput("");
+      return true;
+    }
+
+    // Handle /summary command
+    if (trimmedInput === "/summary") {
+      const userEntry: ChatEntry = {
+        type: "user",
+        content: "Please provide a summary of our conversation so far.",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, userEntry]);
+      
+      await processUserMessage("Please provide a summary of our conversation so far.");
+      setInput("");
+      return true;
+    }
+
+    // Handle /save command
+    if (trimmedInput.startsWith("/save ")) {
+      const title = trimmedInput.substring(6);
+      const sessionManager = agent.getSessionManager();
+      const currentSession = agent.getCurrentSession();
+      
+      if (sessionManager && currentSession) {
+        await sessionManager.setSessionTitle(currentSession.id, title);
+        const confirmEntry: ChatEntry = {
+          type: "assistant",
+          content: `✓ Session saved with title: "${title}"`,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, confirmEntry]);
+      } else {
+        const errorEntry: ChatEntry = {
+          type: "assistant",
+          content: "No active session to save.",
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, errorEntry]);
+      }
+      
+      setInput("");
+      return true;
+    }
+
+    // Handle /compact command (toggle)
+    if (trimmedInput === "/compact") {
+      // This would require adding a state for compact mode
+      const infoEntry: ChatEntry = {
+        type: "assistant",
+        content: "Compact mode is not yet implemented.",
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, infoEntry]);
       setInput("");
       return true;
     }

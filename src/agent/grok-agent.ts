@@ -760,4 +760,12 @@ Current working directory: ${process.cwd()}`,
       await this.sessionManager.addMessageToCurrentSession(message);
     }
   }
+
+  getSessionManager(): SessionManager | null {
+    return this.sessionManager;
+  }
+
+  getCurrentSession(): Session | null {
+    return this.currentSession;
+  }
 }
