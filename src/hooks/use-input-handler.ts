@@ -68,7 +68,6 @@ export function useInputHandler({
     { command: "/tree", description: "Show directory tree structure" },
     { command: "/init", description: "Initialize a new GROQ.md file with codebase documentation" },
     { command: "/summary", description: "Summarize current conversation" },
-    { command: "/search", description: "Search the web for information" },
     
     // Configuration & Settings
     { command: "/models", description: "Switch between available Groq models" },
@@ -160,7 +159,6 @@ export function useInputHandler({
   /tree [path]        Show directory tree structure
   /init               Initialize GROQ.md documentation
   /summary            Summarize current conversation
-  /search <query>     Search the web for information
 
 🔹 CONFIGURATION
   /models             Switch between Groq models
@@ -274,20 +272,6 @@ Available models: ${modelNames.join(", ")}`,
       return true;
     }
 
-    // Handle /search command
-    if (trimmedInput.startsWith("/search ")) {
-      const searchQuery = trimmedInput.substring(8);
-      const userEntry: ChatEntry = {
-        type: "user",
-        content: `Search the web for: ${searchQuery}`,
-        timestamp: new Date(),
-      };
-      setChatHistory((prev) => [...prev, userEntry]);
-      
-      await processUserMessage(`Search the web for: ${searchQuery}`);
-      setInput("");
-      return true;
-    }
 
     // Handle /summary command
     if (trimmedInput === "/summary") {
@@ -438,7 +422,7 @@ This feature is under development.`,
 
 🚀 NEW FEATURES:
 • Session management (-c, --continue, --resume)
-• Web search functionality (/search command)
+• Web search functionality (AI can search when needed)
 • Unix pipe support (echo "test" | groq -p)
 • Advanced slash commands
 • Improved command suggestions UI
