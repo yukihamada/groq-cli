@@ -170,5 +170,22 @@ export const GROK_TOOLS: GroqTool[] = [
         required: ['updates']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'web_fetch',
+      description: 'Fetch content from a URL (web pages, APIs, etc.)',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'The URL to fetch content from'
+          }
+        },
+        required: ['url']
+      }
+    }
   }
 ];

@@ -1,6 +1,6 @@
 import { GroqClient, GroqMessage, GroqToolCall } from "../groq/groq-client";
 import { GROK_TOOLS } from "../groq/groq-tools";
-import { TextEditorTool, BashTool, TodoTool, ConfirmationTool } from "../tools";
+import { TextEditorTool, BashTool, TodoTool, ConfirmationTool, WebTool } from "../tools";
 import { ToolResult } from "../types";
 import { EventEmitter } from "events";
 import { createTokenCounter, TokenCounter } from "../utils/token-counter";
@@ -32,6 +32,7 @@ export class GroqAgent extends EventEmitter {
   private bash: BashTool;
   private todoTool: TodoTool;
   private confirmationTool: ConfirmationTool;
+  private webTool: WebTool;
   private chatHistory: ChatEntry[] = [];
   private messages: GroqMessage[] = [];
   private tokenCounter: TokenCounter;
@@ -46,6 +47,7 @@ export class GroqAgent extends EventEmitter {
     this.bash = new BashTool();
     this.todoTool = new TodoTool();
     this.confirmationTool = new ConfirmationTool();
+    this.webTool = new WebTool();
     this.tokenCounter = createTokenCounter("grok-4-latest");
 
     // Load custom instructions
@@ -66,6 +68,7 @@ You have access to these tools:
 - bash: Execute bash commands (use for searching, file discovery, navigation, and system operations)
 - create_todo_list: Create a visual todo list for planning and tracking tasks
 - update_todo_list: Update existing todos in your todo list
+- web_fetch: Fetch content from URLs (web pages, APIs, etc.)
 
 IMPORTANT TOOL USAGE RULES:
 - NEVER use create_file on files that already exist - this will overwrite them completely
@@ -645,6 +648,9 @@ Current working directory: ${process.cwd()}`,
 
         case "update_todo_list":
           return await this.todoTool.updateTodoList(args.updates);
+
+        case "web_fetch":
+          return await this.webTool.fetch(args.url);
 
         default:
           return {
