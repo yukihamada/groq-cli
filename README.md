@@ -120,6 +120,10 @@ echo "Explain quantum computing" | groq -p --json
 - `/help` - Show available commands
 - `/clear` - Clear chat history
 - `/models` - Switch between Groq models
+- `/tree` - Show directory structure
+- `/add-dir <path>` - Add directory contents to context
+- `/summary` - Summarize current conversation
+- `/save <title>` - Save session with custom title
 - `/exit` - Exit the application
 
 ### Custom Instructions
@@ -162,7 +166,37 @@ Instead of typing commands, just tell Groq what you want to do:
 💬 "Help me debug why my API calls are failing"
 💬 "Convert this JavaScript file to TypeScript"
 💬 "Write unit tests for the utils folder"
+💬 "Fetch the latest documentation from https://docs.groq.com"
 ```
+
+## Features Comparison with Claude CLI
+
+### What Groq CLI now has:
+- ✅ Session management (`-c`, `--continue`, `--resume`)
+- ✅ Unix pipe support (`echo "test" | groq -p`)
+- ✅ Web fetch capabilities (`web_fetch` tool)
+- ✅ Advanced slash commands (`/tree`, `/add-dir`, `/summary`)
+- ✅ Custom instructions (`.groq/GROQ.md`)
+- ✅ File operations and bash commands
+- ✅ Todo list management
+- ✅ Model switching
+- ✅ JSON output mode
+
+### Performance Advantages
+
+#### Speed (tokens/sec)
+| Model | Speed | Notes |
+|-------|-------|-------|
+| Groq (Llama 3.3 70B) | 500+ | Fastest available |
+| GPT-4 | 20 | 25x slower |
+| Claude 3.5 | 40 | 12.5x slower |
+
+#### Cost (per 1M tokens)
+| Model | Input | Output |
+|-------|-------|--------|
+| Groq | $0.39 | $0.39 |
+| GPT-4 | $30 | $60 |
+| Claude 3.5 | $3 | $15 |
 
 ## Development
 
