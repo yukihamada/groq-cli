@@ -173,12 +173,6 @@ Current working directory: ${process.cwd()}`,
         ) {
           toolRounds++;
           
-          // Debug log the raw assistant message
-          console.error("DEBUG: Raw assistant message with tool calls:", JSON.stringify({
-            role: assistantMessage.role,
-            content: assistantMessage.content,
-            tool_calls: assistantMessage.tool_calls
-          }, null, 2));
 
           // Add assistant message with tool calls
           // Clean up any malformed function call syntax in content
@@ -335,26 +329,6 @@ Current working directory: ${process.cwd()}`,
 
     const result = reduce(previous, item.choices[0]?.delta || {});
     
-    // Debug logging for tool calls
-    if (result.tool_calls && result.tool_calls.length > 0) {
-      for (const tc of result.tool_calls) {
-        // Log all tool calls for debugging
-        console.error("Tool call detected:", {
-          id: tc.id,
-          type: tc.type,
-          function: {
-            name: tc.function?.name,
-            arguments: tc.function?.arguments
-          }
-        });
-        
-        if (tc.function?.arguments && tc.function.arguments.length > 200) {
-          console.error("Warning: Large arguments detected for tool:", tc.function.name);
-          console.error("Arguments length:", tc.function.arguments.length);
-          console.error("First 100 chars:", tc.function.arguments.substring(0, 100));
-        }
-      }
-    }
     
     return result;
   }
@@ -599,25 +573,11 @@ Current working directory: ${process.cwd()}`,
 
   private async executeTool(toolCall: GroqToolCall): Promise<ToolResult> {
     try {
-      // Debug log the tool call
-      console.error("DEBUG: Executing tool call:", JSON.stringify({
-        id: toolCall.id,
-        type: toolCall.type,
-        function: {
-          name: toolCall.function.name,
-          arguments: toolCall.function.arguments
-        }
-      }, null, 2));
       
       let args: any;
       try {
         args = JSON.parse(toolCall.function.arguments);
       } catch (parseError: any) {
-        console.error("Failed to parse tool arguments:", toolCall.function.arguments);
-        console.error("Tool name:", toolCall.function.name);
-        console.error("Parse error:", parseError.message);
-        console.error("Raw arguments:", toolCall.function.arguments);
-        console.error("Arguments length:", toolCall.function.arguments.length);
         
         // Try to clean up the arguments if they have extra content
         let cleanedArgs = toolCall.function.arguments;
@@ -627,7 +587,6 @@ Current working directory: ${process.cwd()}`,
           cleanedArgs = cleanedArgs.substring(0, lastBrace + 1);
           try {
             args = JSON.parse(cleanedArgs);
-            console.log("Successfully parsed cleaned arguments");
           } catch (secondError) {
             return {
               success: false,
