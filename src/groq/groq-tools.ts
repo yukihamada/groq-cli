@@ -202,8 +202,7 @@ export const GROQ_TOOLS: GroqTool[] = [
           },
           limit: {
             type: 'number',
-            description: 'Maximum number of results to return (default: 5)',
-            default: 5
+            description: 'Maximum number of results to return (default: 5)'
           }
         },
         required: ['query']
