@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude-cli vs Grok-cli vs Groq-cli 比較</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 40px;
+        }
+        
+        .cli-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .cli-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        
+        .cli-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .cli-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+        }
+        
+        .claude-card::before {
+            background: #ff6b6b;
+        }
+        
+        .grok-card::before {
+            background: #4ecdc4;
+        }
+        
+        .groq-card::before {
+            background: #667eea;
+        }
+        
+        .cli-logo {
+            font-size: 3em;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .cli-name {
+            font-size: 1.8em;
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .claude-card .cli-name {
+            color: #ff6b6b;
+        }
+        
+        .grok-card .cli-name {
+            color: #4ecdc4;
+        }
+        
+        .groq-card .cli-name {
+            color: #667eea;
+        }
+        
+        .cli-provider {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+        
+        .features-list {
+            list-style: none;
+            margin-bottom: 20px;
+        }
+        
+        .features-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .features-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+        
+        .claude-card .features-list li::before {
+            color: #ff6b6b;
+        }
+        
+        .grok-card .features-list li::before {
+            color: #4ecdc4;
+        }
+        
+        .groq-card .features-list li::before {
+            color: #667eea;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 40px;
+        }
+        
+        .comparison-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .comparison-table th {
+            background: #3b82f6;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .comparison-table td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .comparison-table tr:hover {
+            background: #f8f9ff;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .badge-best {
+            background: #10b981;
+            color: white;
+        }
+        
+        .badge-good {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .badge-ok {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .pros-cons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .pros, .cons {
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .pros {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+        }
+        
+        .cons {
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+        }
+        
+        .pros h4, .cons h4 {
+            margin-bottom: 10px;
+        }
+        
+        .pros h4 {
+            color: #16a34a;
+        }
+        
+        .cons h4 {
+            color: #dc2626;
+        }
+        
+        .pros ul, .cons ul {
+            list-style: none;
+            font-size: 0.9em;
+        }
+        
+        .pros li, .cons li {
+            padding: 4px 0;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            margin-bottom: 40px;
+        }
+        
+        .chart-title {
+            font-size: 1.3em;
+            color: #444;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .recommendation {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .recommendation h2 {
+            font-size: 2em;
+            margin-bottom: 15px;
+        }
+        
+        .recommendation p {
+            font-size: 1.2em;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .link-to-cost {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .link-to-cost a {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: 600;
+            transition: transform 0.3s ease;
+        }
+        
+        .link-to-cost a:hover {
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .cli-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .pros-cons {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI CLI ツール完全比較</h1>
+        <p class="subtitle">Claude-cli vs Grok-cli vs Groq-cli - どれを選ぶべき？</p>
+        
+        <div class="cli-cards">
+            <div class="cli-card claude-card">
+                <div class="cli-logo">🔴</div>
+                <h3 class="cli-name">Claude-cli</h3>
+                <p class="cli-provider">by Anthropic</p>
+                <ul class="features-list">
+                    <li>Claude 3.5 Sonnet/Opus搭載</li>
+                    <li>高度な推論・分析能力</li>
+                    <li>200K トークンコンテキスト</li>
+                    <li>MCP（Model Context Protocol）対応</li>
+                    <li>画像認識・生成対応</li>
+                    <li>プロジェクト全体の理解</li>
+                </ul>
+                <div class="pros-cons">
+                    <div class="pros">
+                        <h4>👍 長所</h4>
+                        <ul>
+                            <li>最高品質の出力</li>
+                            <li>複雑なタスク対応</li>
+                            <li>安全性重視</li>
+                        </ul>
+                    </div>
+                    <div class="cons">
+                        <h4>👎 短所</h4>
+                        <ul>
+                            <li>やや遅い</li>
+                            <li>コスト高め</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cli-card grok-card">
+                <div class="cli-logo">🟢</div>
+                <h3 class="cli-name">Grok-cli</h3>
+                <p class="cli-provider">by xAI (Elon Musk)</p>
+                <ul class="features-list">
+                    <li>Grok-2モデル搭載</li>
+                    <li>リアルタイム情報アクセス</li>
+                    <li>ユーモアのある応答</li>
+                    <li>X (Twitter) 統合</li>
+                    <li>最新ニュース・トレンド対応</li>
+                    <li>制限の少ない応答</li>
+                </ul>
+                <div class="pros-cons">
+                    <div class="pros">
+                        <h4>👍 長所</h4>
+                        <ul>
+                            <li>最新情報対応</li>
+                            <li>独創的な回答</li>
+                            <li>制限が少ない</li>
+                        </ul>
+                    </div>
+                    <div class="cons">
+                        <h4>👎 短所</h4>
+                        <ul>
+                            <li>精度にばらつき</li>
+                            <li>限定的なアクセス</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cli-card groq-card">
+                <div class="cli-logo">🟣</div>
+                <h3 class="cli-name">Groq-cli</h3>
+                <p class="cli-provider">by Groq (LPU Technology)</p>
+                <ul class="features-list">
+                    <li>Llama 3.3 70B 搭載</li>
+                    <li>500+ トークン/秒の超高速</li>
+                    <li>圧倒的低コスト</li>
+                    <li>専用LPUチップ使用</li>
+                    <li>リアルタイムストリーミング</li>
+                    <li>大量処理に最適</li>
+                </ul>
+                <div class="pros-cons">
+                    <div class="pros">
+                        <h4>👍 長所</h4>
+                        <ul>
+                            <li>圧倒的速度</li>
+                            <li>超低コスト</li>
+                            <li>即座の応答</li>
+                        </ul>
+                    </div>
+                    <div class="cons">
+                        <h4>👎 短所</h4>
+                        <ul>
+                            <li>モデル選択肢少</li>
+                            <li>特殊用途限定</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="comparison-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>項目</th>
+                        <th>Claude-cli</th>
+                        <th>Grok-cli</th>
+                        <th>Groq-cli</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>提供元</strong></td>
+                        <td>Anthropic</td>
+                        <td>xAI (Elon Musk)</td>
+                        <td>Groq Inc.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>主要モデル</strong></td>
+                        <td>Claude 3.5 Sonnet/Opus</td>
+                        <td>Grok-2</td>
+                        <td>Llama 3.3 70B</td>
+                    </tr>
+                    <tr>
+                        <td><strong>処理速度</strong></td>
+                        <td><span class="badge badge-ok">30-60 トークン/秒</span></td>
+                        <td><span class="badge badge-ok">40-80 トークン/秒</span></td>
+                        <td><span class="badge badge-best">500+ トークン/秒</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>コスト (100万トークン)</strong></td>
+                        <td>$15-75</td>
+                        <td>$10-50 (推定)</td>
+                        <td><span class="badge badge-best">$0.59-0.79</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>コンテキスト長</strong></td>
+                        <td><span class="badge badge-best">200K トークン</span></td>
+                        <td>100K トークン</td>
+                        <td>128K トークン</td>
+                    </tr>
+                    <tr>
+                        <td><strong>品質・精度</strong></td>
+                        <td><span class="badge badge-best">最高品質</span></td>
+                        <td><span class="badge badge-good">高品質</span></td>
+                        <td><span class="badge badge-good">高品質</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>特徴</strong></td>
+                        <td>安全性重視、高度な推論</td>
+                        <td>リアルタイム情報、ユーモア</td>
+                        <td>超高速、低コスト</td>
+                    </tr>
+                    <tr>
+                        <td><strong>最適な用途</strong></td>
+                        <td>複雑な分析・開発タスク</td>
+                        <td>最新情報が必要なタスク</td>
+                        <td>大量処理・リアルタイム応答</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="chart-container">
+            <h3 class="chart-title">📊 パフォーマンス比較</h3>
+            <canvas id="performanceChart"></canvas>
+        </div>
+        
+        <div class="recommendation">
+            <h2>🎯 おすすめの使い分け</h2>
+            <p>
+                <strong>品質重視</strong>なら Claude-cli、
+                <strong>最新情報</strong>なら Grok-cli、
+                <strong>速度・コスト重視</strong>なら Groq-cli を選びましょう！
+            </p>
+        </div>
+        
+        <div class="chart-container">
+            <h3 class="chart-title">💡 用途別おすすめ度</h3>
+            <canvas id="useCaseChart"></canvas>
+        </div>
+        
+        <div class="link-to-cost">
+            <a href="groq-comparison.html">📈 Groqの詳細な速度・コスト比較を見る</a>
+        </div>
+    </div>
+    
+    <script>
+        // パフォーマンス比較レーダーチャート
+        const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+        new Chart(performanceCtx, {
+            type: 'radar',
+            data: {
+                labels: ['処理速度', 'コスト効率', '品質・精度', 'コンテキスト長', '機能の豊富さ', '使いやすさ'],
+                datasets: [{
+                    label: 'Claude-cli',
+                    data: [60, 40, 100, 100, 95, 90],
+                    borderColor: '#ff6b6b',
+                    backgroundColor: 'rgba(255, 107, 107, 0.2)',
+                    borderWidth: 3
+                }, {
+                    label: 'Grok-cli',
+                    data: [70, 50, 85, 70, 80, 85],
+                    borderColor: '#4ecdc4',
+                    backgroundColor: 'rgba(78, 205, 196, 0.2)',
+                    borderWidth: 3
+                }, {
+                    label: 'Groq-cli',
+                    data: [100, 100, 85, 80, 70, 95],
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                    borderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            stepSize: 20
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 用途別おすすめ度チャート
+        const useCaseCtx = document.getElementById('useCaseChart').getContext('2d');
+        new Chart(useCaseCtx, {
+            type: 'bar',
+            data: {
+                labels: ['コード生成', 'デバッグ', 'ドキュメント作成', 'データ分析', 'リアルタイムチャット', 'バッチ処理'],
+                datasets: [{
+                    label: 'Claude-cli',
+                    data: [95, 100, 100, 95, 70, 60],
+                    backgroundColor: 'rgba(255, 107, 107, 0.8)',
+                    borderColor: '#ff6b6b',
+                    borderWidth: 2
+                }, {
+                    label: 'Grok-cli',
+                    data: [85, 80, 85, 80, 90, 70],
+                    backgroundColor: 'rgba(78, 205, 196, 0.8)',
+                    borderColor: '#4ecdc4',
+                    borderWidth: 2
+                }, {
+                    label: 'Groq-cli',
+                    data: [85, 85, 80, 85, 100, 100],
+                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                    borderColor: '#667eea',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
