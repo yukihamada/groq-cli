@@ -23,6 +23,8 @@ A conversational AI CLI tool powered by Groq with intelligent text editor capabi
 - **🔧 Automatic Tool Selection**: AI intelligently chooses the right tools for your requests
 - **💬 Interactive UI**: Beautiful terminal interface built with Ink
 - **🌍 Global Installation**: Install and use anywhere with `npm i -g groq-ai-cli`
+- **💾 Session Management**: Continue previous conversations with `-c` or `--resume`
+- **🔗 Unix Pipe Support**: Use with pipes for headless operation
 
 ## Installation
 
@@ -88,6 +90,30 @@ groq
 
 # Start in specific directory
 groq -d /path/to/project
+```
+
+### Session Management
+```bash
+# Continue last session
+groq -c
+
+# List all sessions
+groq --list
+
+# Resume specific session
+groq --resume <session-id>
+```
+
+### Unix Pipe Support
+```bash
+# Pipe input and get response
+echo "What is the capital of France?" | groq -p
+
+# Process file contents
+cat myfile.txt | groq -p "Summarize this file"
+
+# JSON output
+echo "Explain quantum computing" | groq -p --json
 ```
 
 ### Built-in Commands

@@ -49,7 +49,7 @@ program
   .option("-c, --continue", "continue last session")
   .option("--resume <id>", "resume specific session by ID")
   .option("--list", "list all sessions")
-  .option("-p, --print <prompt>", "headless mode - print response and exit")
+  .option("-p, --print [prompt]", "headless mode - print response and exit (reads stdin if available)")
   .option("--json", "output in JSON format (use with -p)")
   .option("--no-tty-check", "Skip TTY check (for debugging only)")
   .option("--force-tty", "Force TTY mode (for debugging only)")
@@ -103,8 +103,8 @@ program
     const agent = new GroqAgent(apiKey);
     
     // Handle headless mode
-    if (options.print) {
-      let inputContent = options.print;
+    if (options.print !== undefined) {
+      let inputContent = options.print || '';
       
       // Read from stdin if available
       if (!process.stdin.isTTY) {
@@ -114,8 +114,17 @@ program
         }
         const stdinContent = Buffer.concat(chunks).toString();
         if (stdinContent) {
-          inputContent = stdinContent + "\n\n" + inputContent;
+          if (inputContent) {
+            inputContent = stdinContent + "\n\n" + inputContent;
+          } else {
+            inputContent = stdinContent;
+          }
         }
+      }
+      
+      if (!inputContent) {
+        console.error("Error: No input provided. Use -p with a prompt or pipe data to stdin.");
+        process.exit(1);
       }
       
       try {
