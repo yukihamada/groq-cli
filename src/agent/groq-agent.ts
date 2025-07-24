@@ -50,7 +50,7 @@ export class GroqAgent extends EventEmitter {
     this.confirmationTool = new ConfirmationTool();
     this.webTool = new WebTool();
     this.webSearchTool = new WebSearchTool();
-    this.tokenCounter = createTokenCounter("llama-3.3-70b-versatile");
+    this.tokenCounter = createTokenCounter(this.groqClient.getCurrentModel());
 
     // Load custom instructions
     const customInstructions = loadCustomInstructions();
@@ -291,6 +291,9 @@ Current working directory: ${process.cwd()}`,
       if (error.message.includes("tool call validation failed") && error.message.includes("which was not request.tools")) {
         errorMessage = "The AI model returned a malformed response. This can happen with certain prompts. Please try rephrasing your request or use simpler language.";
         console.error("Malformed tool call detected in response");
+      } else if (error.message.includes("after trying all models")) {
+        errorMessage = "All available models failed to process your request. The system tried multiple fallback models but encountered errors with each one.";
+        console.error("All fallback models exhausted");
       }
       
       const errorEntry: ChatEntry = {
