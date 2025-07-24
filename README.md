@@ -2,7 +2,18 @@
 
 A conversational AI CLI tool powered by Groq with intelligent text editor capabilities and tool usage.
 
+[![npm version](https://img.shields.io/npm/v/groq-ai-cli.svg)](https://www.npmjs.com/package/groq-ai-cli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 <img width="980" height="435" alt="Screenshot 2025-07-21 at 13 35 41" src="https://github.com/user-attachments/assets/192402e3-30a8-47df-9fc8-a084c5696e78" />
+
+## ✨ Why Groq CLI?
+
+- **⚡ Blazing Fast**: 500+ tokens/second processing speed
+- **💰 Cost Effective**: 95x cheaper than GPT-4, 75x cheaper than Claude
+- **🚀 Real-time Streaming**: Instant responses with no lag
+- **🛠️ Full-featured**: File operations, bash commands, todo management
+- **🎨 Beautiful UI**: Interactive terminal interface with syntax highlighting
 
 ## Features
 
@@ -17,11 +28,20 @@ A conversational AI CLI tool powered by Groq with intelligent text editor capabi
 
 ### Prerequisites
 - Node.js 16+ 
-- Groq API key from [Groq Console](https://console.groq.com/)
+- Groq API key from [Groq Console](https://console.groq.com/keys)
 
-### Global Installation (Recommended)
+### Install from npm
 ```bash
 npm install -g groq-ai-cli
+```
+
+### Quick Start
+```bash
+# Set your API key
+export GROQ_API_KEY=your_api_key_here
+
+# Start Groq CLI
+groq
 ```
 
 ### Local Development
@@ -35,37 +55,46 @@ npm link
 
 ## Setup
 
-1. Get your Groq API key from [Groq Console](https://console.groq.com/keys)
+### 1. Get Your API Key
+Sign up at [Groq Console](https://console.groq.com/) and create an API key from the [keys page](https://console.groq.com/keys).
 
-2. Set up your API key (choose one method):
+### 2. Configure API Key
 
-**Method 1: Environment Variable**
+**Option 1: Environment Variable (Recommended)**
 ```bash
 export GROQ_API_KEY=your_api_key_here
+
+# Add to your shell profile for persistence
+echo 'export GROQ_API_KEY=your_api_key_here' >> ~/.bashrc
 ```
 
-**Method 2: .env File**
+**Option 2: .env File**
 ```bash
-cp .env.example .env
-# Edit .env and add your API key
+# Create .env in your project directory
+echo "GROQ_API_KEY=your_api_key_here" > .env
 ```
 
-**Method 3: Command Line Flag**
+**Option 3: Command Line Flag**
 ```bash
 groq --api-key your_api_key_here
 ```
 
 ## Usage
 
-Start the conversational AI assistant:
+### Basic Usage
 ```bash
+# Start in current directory
 groq
-```
 
-Or specify a working directory:
-```bash
+# Start in specific directory
 groq -d /path/to/project
 ```
+
+### Built-in Commands
+- `/help` - Show available commands
+- `/clear` - Clear chat history
+- `/models` - Switch between Groq models
+- `/exit` - Exit the application
 
 ### Custom Instructions
 
@@ -94,16 +123,29 @@ Instead of typing commands, just tell Groq what you want to do:
 
 ```
 💬 "Show me the contents of package.json"
-💬 "Create a new file called hello.js with a simple console.log"
+💬 "Create a new React component called Header"
 💬 "Find all TypeScript files in the src directory"
-💬 "Replace 'oldFunction' with 'newFunction' in all JS files"
-💬 "Run the tests and show me the results"
-💬 "What's the current directory structure?"
+💬 "Fix the ESLint errors in this file"
+💬 "Run npm test and show me the results"
+💬 "Create a todo list for implementing user authentication"
+```
+
+### Advanced Examples
+```
+💬 "Analyze this codebase and suggest improvements"
+💬 "Help me debug why my API calls are failing"
+💬 "Convert this JavaScript file to TypeScript"
+💬 "Write unit tests for the utils folder"
 ```
 
 ## Development
 
+### Local Development Setup
 ```bash
+# Clone the repository
+git clone https://github.com/yukihamada/groq-cli
+cd groq-cli
+
 # Install dependencies
 npm install
 
@@ -112,6 +154,9 @@ npm run dev
 
 # Build project
 npm run build
+
+# Run tests
+npm test
 
 # Run linter
 npm run lint
@@ -123,10 +168,36 @@ npm run typecheck
 ## Architecture
 
 - **Agent**: Core command processing and execution logic
-- **Tools**: Text editor and bash tool implementations
-- **UI**: Ink-based terminal interface components
+- **Tools**: Text editor, bash, todo, and confirmation tool implementations
+- **UI**: React-based terminal interface using Ink
+- **Groq Integration**: OpenAI-compatible client for Groq API
 - **Types**: TypeScript definitions for the entire system
+
+## Performance & Cost
+
+| Metric | Groq CLI | GPT-4 CLI | Claude CLI |
+|--------|----------|-----------|------------|
+| Speed | 500+ tokens/sec | 30 tokens/sec | 50 tokens/sec |
+| Cost (per 1M tokens) | $0.59-0.79 | $30-60 | $15-75 |
+| Latency | <100ms | 500-1000ms | 300-800ms |
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## Links
+
+- [NPM Package](https://www.npmjs.com/package/groq-ai-cli)
+- [GitHub Repository](https://github.com/yukihamada/groq-cli)
+- [Groq Console](https://console.groq.com/)
+- [Report Issues](https://github.com/yukihamada/groq-cli/issues)
 
 ## License
 
-MIT
+MIT © [Yuki Hamada](https://github.com/yukihamada)

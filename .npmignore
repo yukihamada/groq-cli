@@ -3,6 +3,10 @@ src/
 *.ts
 !dist/**/*.d.ts
 
+# Test files in dist
+dist/**/*.test.*
+dist/**/test/
+
 # Development files
 .env
 .env.*
@@ -46,6 +50,9 @@ temp/
 examples/
 demo/
 
+# Test files
+existing.txt
+
 # HTML comparison pages
 *.html
 
@@ -55,3 +62,6 @@ demo/
 
 # Node modules (should already be ignored by npm)
 node_modules/
+
+# Claude settings
+.claude/
