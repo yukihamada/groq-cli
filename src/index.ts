@@ -43,7 +43,7 @@ program
   .description(
     "A conversational AI CLI tool powered by Groq with text editor capabilities"
   )
-  .version("0.2.7")
+  .version("0.2.8")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
   .option("-k, --api-key <key>", "Groq API key (or set GROQ_API_KEY env var)")
   .option("-c, --continue", "continue last session")
@@ -51,6 +51,7 @@ program
   .option("--list", "list all sessions")
   .option("-p, --print [prompt]", "headless mode - print response and exit (reads stdin if available)")
   .option("--json", "output in JSON format (use with -p)")
+  .option("-s, --simple", "simple mode without tools (faster, more reliable)")
   .option("--no-tty-check", "Skip TTY check (for debugging only)")
   .option("--force-tty", "Force TTY mode (for debugging only)")
   .action(async (options) => {
@@ -100,7 +101,7 @@ program
       process.exit(1);
     }
     
-    const agent = new GroqAgent(apiKey);
+    const agent = new GroqAgent(apiKey, options.simple);
     
     // Handle headless mode
     if (options.print !== undefined) {

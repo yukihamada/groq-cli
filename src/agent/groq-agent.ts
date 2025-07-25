@@ -40,9 +40,11 @@ export class GroqAgent extends EventEmitter {
   private abortController: AbortController | null = null;
   private sessionManager: SessionManager | null = null;
   private currentSession: Session | null = null;
+  private simpleMode: boolean = false;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, simpleMode: boolean = false) {
     super();
+    this.simpleMode = simpleMode;
     this.groqClient = new GroqClient(apiKey);
     this.textEditor = new TextEditorTool();
     this.bash = new BashTool();
@@ -59,9 +61,13 @@ export class GroqAgent extends EventEmitter {
       : "";
 
     // Initialize with system message
-    this.messages.push({
-      role: "system",
-      content: `You are Groq CLI, an AI assistant that helps with file editing, coding tasks, and system operations.${customInstructionsSection}
+    const systemContent = this.simpleMode 
+      ? `You are Groq CLI, an AI assistant powered by Groq's fast inference.${customInstructionsSection}
+
+You are running in simple mode without access to tools. Focus on providing helpful, accurate responses based on your knowledge.
+
+Current working directory: ${process.cwd()}`
+      : `You are Groq CLI, an AI assistant that helps with file editing, coding tasks, and system operations.${customInstructionsSection}
 
 CRITICAL: When using tools, you MUST follow the exact format specified. Never combine tool names with parameters in a single string.
 
@@ -123,7 +129,11 @@ IMPORTANT RESPONSE GUIDELINES:
 - Keep responses concise and focused on the actual work being done
 - If a tool execution completes the user's request, you can remain silent or give a brief confirmation
 
-Current working directory: ${process.cwd()}`,
+Current working directory: ${process.cwd()}`;
+    
+    this.messages.push({
+      role: "system",
+      content: systemContent,
     });
   }
 
@@ -166,7 +176,7 @@ Current working directory: ${process.cwd()}`,
     try {
       let currentResponse = await this.groqClient.chat(
         this.messages,
-        GROQ_TOOLS
+        this.simpleMode ? undefined : GROQ_TOOLS
       );
 
       // Agent loop - continue until no more tool calls or max rounds reached
@@ -175,6 +185,15 @@ Current working directory: ${process.cwd()}`,
 
         if (!assistantMessage) {
           throw new Error("No response from Groq");
+        }
+
+        // Try to parse malformed tool calls from content if no proper tool_calls
+        if (!assistantMessage.tool_calls && assistantMessage.content) {
+          const parsedCalls = this.parseTextToolCalls(assistantMessage.content);
+          if (parsedCalls) {
+            console.log(`Parsed malformed tool call from content: ${assistantMessage.content}`);
+            assistantMessage.tool_calls = parsedCalls;
+          }
         }
 
         // Handle tool calls
@@ -247,7 +266,7 @@ Current working directory: ${process.cwd()}`,
           // Get next response - this might contain more tool calls
           currentResponse = await this.groqClient.chat(
             this.messages,
-            GROQ_TOOLS
+            this.simpleMode ? undefined : GROQ_TOOLS
           );
         } else {
           // No more tool calls, add final response
@@ -304,6 +323,42 @@ Current working directory: ${process.cwd()}`,
       this.chatHistory.push(errorEntry);
       return [userEntry, errorEntry];
     }
+  }
+
+  private parseTextToolCalls(content: string): GroqToolCall[] | null {
+    // Detect various malformed tool call patterns from Groq models
+    const patterns = [
+      /<function=([a-zA-Z_]\w*)\s*({[^}]+})/,           // <function=tool_name {...}>
+      /<function\(([a-zA-Z_]\w*)\s*({[^}]+})\)/,        // <function(tool_name {...})
+      /<function\\([a-zA-Z_]\w*)\s*({[^}]+})/,          // <function\tool_name{...}
+      /^([a-zA-Z_]\w*)\(({[^}]+})\)/,                   // tool_name({...})
+    ];
+    
+    for (const pattern of patterns) {
+      const match = pattern.exec(content);
+      if (match) {
+        const toolName = match[1];
+        let args = match[2];
+        
+        try {
+          // Validate JSON
+          JSON.parse(args);
+          
+          return [{
+            id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            type: 'function',
+            function: {
+              name: toolName,
+              arguments: args
+            }
+          }];
+        } catch (e) {
+          console.error(`Failed to parse tool arguments: ${args}`);
+        }
+      }
+    }
+    
+    return null;
   }
 
   private messageReducer(previous: any, item: any): any {
@@ -401,7 +456,7 @@ Current working directory: ${process.cwd()}`,
         }
 
         // Stream response and accumulate
-        const stream = this.groqClient.chatStream(this.messages, GROQ_TOOLS);
+        const stream = this.groqClient.chatStream(this.messages, this.simpleMode ? undefined : GROQ_TOOLS);
         let accumulatedMessage: any = {};
         let accumulatedContent = "";
         let toolCallsYielded = false;
