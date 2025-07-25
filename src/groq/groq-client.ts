@@ -59,7 +59,7 @@ export class GroqClient {
     this.client = new OpenAI({
       apiKey,
       baseURL: 'https://api.groq.com/openai/v1',
-      timeout: 360000,
+      timeout: 60000, // 60 seconds instead of 360 seconds
     });
     if (model) {
       this.currentModel = model;

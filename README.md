@@ -120,6 +120,7 @@ echo "Explain quantum computing" | groq -p --json
 - `/help` - Show available commands
 - `/clear` - Clear chat history
 - `/models` - Switch between Groq models
+- `/personality` - Switch between assistant personalities
 - `/tree` - Show directory structure
 - `/add-dir <path>` - Add directory contents to context
 - `/summary` - Summarize current conversation
@@ -146,6 +147,45 @@ Follow the existing code style and patterns in this project.
 ```
 
 Groq will automatically load and follow these instructions when working in your project directory. The custom instructions are added to Groq's system prompt and take priority over default behavior.
+
+### Assistant Personalities
+
+Groq CLI supports customizable assistant personalities. You can switch between different personas or create your own:
+
+```bash
+# View available personalities
+groq
+💬 /personality
+
+# Switch to Japanese assistant
+💬 /personality japanese_assistant
+
+# Switch to English coder
+💬 /personality english_coder
+
+# Switch back to default
+💬 /personality none
+```
+
+#### Create Custom Personality
+
+Create `.groq/assistant.json` in your project or home directory:
+
+```json
+{
+  "name": "グロックくん",
+  "role": "あなたの優秀な部下",
+  "personality": "礼儀正しく、効率的で、積極的に提案を行います",
+  "language": "日本語",
+  "responseStyle": "丁寧で簡潔、要点を整理して伝えます",
+  "expertise": ["プログラミング", "ファイル操作", "タスク管理"]
+}
+```
+
+Built-in personalities:
+- **japanese_assistant**: 日本語アシスタント「グロックくん」
+- **english_coder**: Professional software engineer "DevBot"
+- **creative_writer**: Creative writing assistant "Muse"
 
 ## Example Conversations
 

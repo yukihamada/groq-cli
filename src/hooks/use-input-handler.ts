@@ -71,6 +71,7 @@ export function useInputHandler({
     
     // Configuration & Settings
     { command: "/models", description: "Switch between available Groq models" },
+    { command: "/personality", description: "Switch between assistant personalities" },
     { command: "/config", description: "Open configuration settings" },
     { command: "/memory", description: "Edit Groq memory files (GROQ.md)" },
     { command: "/theme", description: "Change UI theme (dark/light)" },
@@ -162,6 +163,7 @@ export function useInputHandler({
 
 🔹 CONFIGURATION
   /models             Switch between Groq models
+  /personality        Switch between assistant personalities
   /config             Open configuration settings
   /memory             Edit GROQ.md memory files
   /theme              Change UI theme
@@ -442,6 +444,51 @@ For full changelog: https://github.com/yukihamada/groq-cli/releases`,
         timestamp: new Date(),
       };
       setChatHistory((prev) => [...prev, releaseEntry]);
+      setInput("");
+      return true;
+    }
+
+    // Handle /personality command
+    if (trimmedInput === "/personality" || trimmedInput.startsWith("/personality ")) {
+      if (trimmedInput === "/personality") {
+        const currentPersonality = agent.getCurrentPersonality();
+        const personalityEntry: ChatEntry = {
+          type: "assistant",
+          content: `Available personalities:
+
+🤖 japanese_assistant - グロックくん (日本語アシスタント)
+💻 english_coder - DevBot (Senior Software Engineer)
+✍️ creative_writer - Muse (Creative Writing Assistant)
+❌ none - Default assistant without personality
+
+Current: ${currentPersonality ? (currentPersonality.name || 'custom') : 'none'}
+
+Usage: /personality <personality_name>
+Example: /personality japanese_assistant`,
+          timestamp: new Date(),
+        };
+        setChatHistory((prev) => [...prev, personalityEntry]);
+      } else {
+        const personalityKey = trimmedInput.substring(13).trim();
+        try {
+          agent.switchPersonality(personalityKey === 'none' ? null : personalityKey);
+          const confirmEntry: ChatEntry = {
+            type: "assistant",
+            content: personalityKey === 'none' 
+              ? '✓ Switched to default assistant (no personality)'
+              : `✓ Switched to personality: ${personalityKey}`,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, confirmEntry]);
+        } catch (error: any) {
+          const errorEntry: ChatEntry = {
+            type: "assistant",
+            content: `Error switching personality: ${error.message}`,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, errorEntry]);
+        }
+      }
       setInput("");
       return true;
     }

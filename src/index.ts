@@ -43,7 +43,7 @@ program
   .description(
     "A conversational AI CLI tool powered by Groq with text editor capabilities"
   )
-  .version("0.2.8")
+  .version("0.2.9")
   .option("-d, --directory <dir>", "set working directory", process.cwd())
   .option("-k, --api-key <key>", "Groq API key (or set GROQ_API_KEY env var)")
   .option("-c, --continue", "continue last session")
@@ -105,7 +105,14 @@ program
     
     // Handle headless mode
     if (options.print !== undefined) {
-      let inputContent = options.print || '';
+      let inputContent = '';
+      
+      // Handle the case where print is true (no argument provided)
+      if (options.print === true) {
+        inputContent = '';
+      } else if (typeof options.print === 'string') {
+        inputContent = options.print;
+      }
       
       // Read from stdin if available
       if (!process.stdin.isTTY) {

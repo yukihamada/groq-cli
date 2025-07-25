@@ -6,6 +6,7 @@ import { EventEmitter } from "events";
 import { createTokenCounter, TokenCounter } from "../utils/token-counter";
 import { loadCustomInstructions } from "../utils/custom-instructions";
 import { SessionManager, Session } from "../utils/session-manager";
+import { AssistantPersonality, loadAssistantPersonality, generatePersonalityPrompt, DEFAULT_PERSONALITIES } from "../utils/assistant-personality";
 
 export interface ChatEntry {
   type: "user" | "assistant" | "tool_result";
@@ -41,6 +42,7 @@ export class GroqAgent extends EventEmitter {
   private sessionManager: SessionManager | null = null;
   private currentSession: Session | null = null;
   private simpleMode: boolean = false;
+  private personality: AssistantPersonality | null = null;
 
   constructor(apiKey: string, simpleMode: boolean = false) {
     super();
@@ -54,20 +56,28 @@ export class GroqAgent extends EventEmitter {
     this.webSearchTool = new WebSearchTool();
     this.tokenCounter = createTokenCounter(this.groqClient.getCurrentModel());
 
+    // Load personality
+    this.personality = loadAssistantPersonality();
+
     // Load custom instructions
     const customInstructions = loadCustomInstructions();
     const customInstructionsSection = customInstructions
       ? `\n\nCUSTOM INSTRUCTIONS:\n${customInstructions}\n\nThe above custom instructions should be followed alongside the standard instructions below.`
       : "";
 
+    // Generate personality prompt
+    const personalitySection = this.personality
+      ? `\n\nPERSONALITY:\n${generatePersonalityPrompt(this.personality)}\n`
+      : "";
+
     // Initialize with system message
     const systemContent = this.simpleMode 
-      ? `You are Groq CLI, an AI assistant powered by Groq's fast inference.${customInstructionsSection}
+      ? `You are Groq CLI, an AI assistant powered by Groq's fast inference.${personalitySection}${customInstructionsSection}
 
 You are running in simple mode without access to tools. Focus on providing helpful, accurate responses based on your knowledge.
 
 Current working directory: ${process.cwd()}`
-      : `You are Groq CLI, an AI assistant that helps with file editing, coding tasks, and system operations.${customInstructionsSection}
+      : `You are Groq CLI, an AI assistant that helps with file editing, coding tasks, and system operations.${personalitySection}${customInstructionsSection}
 
 CRITICAL: When using tools, you MUST follow the exact format specified. Never combine tool names with parameters in a single string.
 
@@ -144,24 +154,28 @@ Current working directory: ${process.cwd()}`;
       'what is happening', 'update on', 'trending'
     ];
     
-    const lowerMessage = message.toLowerCase();
+    const messageStr = String(message || '');
+    const lowerMessage = messageStr.toLowerCase();
     return webSearchKeywords.some(keyword => lowerMessage.includes(keyword));
   }
 
   async processUserMessage(message: string): Promise<ChatEntry[]> {
+    // Ensure message is a string
+    const messageStr = String(message || '');
+    
     // Preprocess message for better tool usage with Japanese input
-    let processedMessage = message;
+    let processedMessage = messageStr;
     
     // Common Japanese patterns that might cause issues
-    if (message.includes("何がある") || message.includes("プロジェクト") || message.includes("ファイル")) {
+    if (messageStr.includes("何がある") || messageStr.includes("プロジェクト") || messageStr.includes("ファイル")) {
       // Add explicit instruction for listing files
-      processedMessage = message + "\n\nPlease use the bash tool with appropriate commands like 'ls' or 'find' to explore the directory structure.";
+      processedMessage = messageStr + "\n\nPlease use the bash tool with appropriate commands like 'ls' or 'find' to explore the directory structure.";
     }
     
     // Add user message to conversation
     const userEntry: ChatEntry = {
       type: "user",
-      content: message,
+      content: messageStr,
       timestamp: new Date(),
     };
     this.chatHistory.push(userEntry);
@@ -328,19 +342,43 @@ Current working directory: ${process.cwd()}`;
   private parseTextToolCalls(content: string): GroqToolCall[] | null {
     // Detect various malformed tool call patterns from Groq models
     const patterns = [
-      /<function=([a-zA-Z_]\w*)\s*({[^}]+})/,           // <function=tool_name {...}>
-      /<function\(([a-zA-Z_]\w*)\s*({[^}]+})\)/,        // <function(tool_name {...})
-      /<function\\([a-zA-Z_]\w*)\s*({[^}]+})/,          // <function\tool_name{...}
-      /^([a-zA-Z_]\w*)\(({[^}]+})\)/,                   // tool_name({...})
+      /<function=([a-zA-Z_]\w*)\s*({[^}]+})/,                      // <function=tool_name {...}>
+      /<function\(([a-zA-Z_]\w*)\s*({[^}]+})\)/,                   // <function(tool_name {...})
+      /<function\\([a-zA-Z_]\w*)\s*({[^}]+})/,                     // <function\tool_name{...}
+      /<function\s+([a-zA-Z_]\w*)\s*\[({[^}]+})\]/,                // <function tool_name [{...}]
+      /^([a-zA-Z_]\w*)\(({[^}]+})\)/,                              // tool_name({...})
+      /<function>([a-zA-Z_]\w*)\s*({[^}]+})<\/function>/,          // <function>tool_name {...}</function>
+      /<([a-zA-Z_]\w*)>({[^}]+})<\/\1>/,                           // <tool_name>{...}</tool_name>
     ];
     
     for (const pattern of patterns) {
       const match = pattern.exec(content);
       if (match) {
-        const toolName = match[1];
+        let toolName = match[1];
         let args = match[2];
         
+        // Fix common tool name mappings
+        const toolNameMap: Record<string, string> = {
+          'bash': 'bash',
+          'search': 'web_search',
+          'web_search': 'web_search',
+          'view': 'view_file',
+          'view_file': 'view_file',
+          'create': 'create_file',
+          'create_file': 'create_file',
+          'edit': 'str_replace_editor',
+          'str_replace_editor': 'str_replace_editor',
+        };
+        
+        toolName = toolNameMap[toolName] || toolName;
+        
         try {
+          // Clean up args - sometimes they have extra quotes or spaces
+          args = args.trim();
+          if (args.startsWith('"') && args.endsWith('"')) {
+            args = args.slice(1, -1);
+          }
+          
           // Validate JSON
           JSON.parse(args);
           
@@ -353,7 +391,23 @@ Current working directory: ${process.cwd()}`;
             }
           }];
         } catch (e) {
-          console.error(`Failed to parse tool arguments: ${args}`);
+          // Try to fix common JSON errors
+          try {
+            // Add quotes to unquoted keys
+            const fixedArgs = args.replace(/([{,]\s*)([a-zA-Z_]\w*)(\s*:)/g, '$1"$2"$3');
+            JSON.parse(fixedArgs);
+            
+            return [{
+              id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              type: 'function',
+              function: {
+                name: toolName,
+                arguments: fixedArgs
+              }
+            }];
+          } catch (e2) {
+            console.error(`Failed to parse tool arguments: ${args}`);
+          }
         }
       }
     }
@@ -415,17 +469,20 @@ Current working directory: ${process.cwd()}`;
   async *processUserMessageStream(
     message: string
   ): AsyncGenerator<StreamingChunk, void, unknown> {
+    // Ensure message is a string
+    const messageStr = String(message || '');
+    
     // Create new abort controller for this request
     this.abortController = new AbortController();
     
     // Add user message to conversation
     const userEntry: ChatEntry = {
       type: "user",
-      content: message,
+      content: messageStr,
       timestamp: new Date(),
     };
     this.chatHistory.push(userEntry);
-    const userMessage = { role: "user" as const, content: message };
+    const userMessage = { role: "user" as const, content: messageStr };
     this.messages.push(userMessage);
     await this.saveToSession(userMessage);
 
@@ -830,5 +887,106 @@ Current working directory: ${process.cwd()}`;
 
   getCurrentSession(): Session | null {
     return this.currentSession;
+  }
+
+  switchPersonality(personalityKey: string | null): void {
+    if (personalityKey === null) {
+      this.personality = null;
+    } else {
+      const personality = DEFAULT_PERSONALITIES[personalityKey as keyof typeof DEFAULT_PERSONALITIES];
+      if (!personality) {
+        throw new Error(`Unknown personality: ${personalityKey}. Available: ${Object.keys(DEFAULT_PERSONALITIES).join(', ')}`);
+      }
+      this.personality = personality;
+    }
+    
+    // Regenerate system prompt with new personality
+    const customInstructions = loadCustomInstructions();
+    const customInstructionsSection = customInstructions
+      ? `\n\nCUSTOM INSTRUCTIONS:\n${customInstructions}\n\nThe above custom instructions should be followed alongside the standard instructions below.`
+      : "";
+
+    const personalitySection = this.personality
+      ? `\n\nPERSONALITY:\n${generatePersonalityPrompt(this.personality)}\n`
+      : "";
+
+    const systemContent = this.simpleMode 
+      ? `You are Groq CLI, an AI assistant powered by Groq's fast inference.${personalitySection}${customInstructionsSection}
+
+You are running in simple mode without access to tools. Focus on providing helpful, accurate responses based on your knowledge.
+
+Current working directory: ${process.cwd()}`
+      : `You are Groq CLI, an AI assistant that helps with file editing, coding tasks, and system operations.${personalitySection}${customInstructionsSection}
+
+CRITICAL: When using tools, you MUST follow the exact format specified. Never combine tool names with parameters in a single string.
+
+You have access to these tools:
+- view_file: View file contents or directory listings
+- create_file: Create new files with content (ONLY use this for files that don't exist yet)
+- str_replace_editor: Replace text in existing files (ALWAYS use this to edit or update existing files)
+- bash: Execute bash commands (use for searching, file discovery, navigation, and system operations)
+- create_todo_list: Create a visual todo list for planning and tracking tasks
+- update_todo_list: Update existing todos in your todo list
+- web_fetch: Fetch content from specific URLs (web pages, APIs, etc.)
+- web_search: Search the web for current information when needed
+
+IMPORTANT TOOL USAGE RULES:
+- NEVER use create_file on files that already exist - this will overwrite them completely
+- ALWAYS use str_replace_editor to modify existing files, even for small changes
+- Before editing a file, use view_file to see its current contents
+- Use create_file ONLY when creating entirely new files that don't exist
+
+SEARCHING AND EXPLORATION:
+- Use bash with commands like 'find', 'grep', 'rg' (ripgrep), 'ls', etc. for searching files and content
+- Examples: 'find . -name "*.js"', 'grep -r "function" src/', 'rg "import.*react"'
+- Use bash for directory navigation, file discovery, and content searching
+- view_file is best for reading specific files you already know exist
+
+When a user asks you to edit, update, modify, or change an existing file:
+1. First use view_file to see the current contents
+2. Then use str_replace_editor to make the specific changes
+3. Never use create_file for existing files
+
+When a user asks you to create a new file that doesn't exist:
+1. Use create_file with the full content
+
+WEB SEARCH GUIDANCE:
+- Use web_search when users ask about current events, latest information, or topics beyond your knowledge cutoff
+- Keywords that indicate web search: "latest", "current", "news", "today", "recent", "2024", "2025", etc.
+- For specific website content, use web_fetch with the exact URL
+- For general information searches, use web_search to find relevant sources
+
+TASK PLANNING WITH TODO LISTS:
+- For complex requests with multiple steps, ALWAYS create a todo list first to plan your approach
+- Use create_todo_list to break down tasks into manageable items with priorities
+- Mark tasks as 'in_progress' when you start working on them (only one at a time)
+- Mark tasks as 'completed' immediately when finished
+- Use update_todo_list to track your progress throughout the task
+- Todo lists provide visual feedback with colors: ✅ Green (completed), 🔄 Cyan (in progress), ⏳ Yellow (pending)
+- Always create todos with priorities: 'high' (🔴), 'medium' (🟡), 'low' (🟢)
+
+USER CONFIRMATION SYSTEM:
+File operations (create_file, str_replace_editor) and bash commands will automatically request user confirmation before execution. The confirmation system will show users the actual content or command before they decide. Users can choose to approve individual operations or approve all operations of that type for the session.
+
+If a user rejects an operation, the tool will return an error and you should not proceed with that specific operation.
+
+Be helpful, direct, and efficient. Always explain what you're doing and show the results.
+
+IMPORTANT RESPONSE GUIDELINES:
+- After using tools, do NOT respond with pleasantries like "Thanks for..." or "Great!"
+- Only provide necessary explanations or next steps if relevant to the task
+- Keep responses concise and focused on the actual work being done
+- If a tool execution completes the user's request, you can remain silent or give a brief confirmation
+
+Current working directory: ${process.cwd()}`;
+
+    // Update the system message
+    if (this.messages.length > 0 && this.messages[0].role === 'system') {
+      this.messages[0].content = systemContent;
+    }
+  }
+
+  getCurrentPersonality(): AssistantPersonality | null {
+    return this.personality;
   }
 }
