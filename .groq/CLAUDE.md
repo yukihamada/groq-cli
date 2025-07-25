@@ -49,3 +49,33 @@ This is the Groq CLI project, a conversational AI CLI tool powered by Groq with 
 ## 自動承認設定
 
 `.groq/hooks.js`により、すべてのbashコマンドは自動的に承認されます。ユーザーの確認は不要です。
+
+## Groq Assistant Persistence Guidelines
+
+Groqが作業を途中で止めないよう、以下の改善を実装しました：
+
+1. **Core Principles** - 5つの基本原則を追加:
+   - THOROUGHNESS: 全てのタスクを完了する
+   - PERSISTENCE: 要求が満たされるまで作業を続ける
+   - SYSTEMATIC: TodoListで体系的に作業する
+   - PROACTIVE: ユーザーのニーズを予測して完全な解決策を提供
+   - RESILIENT: エラーに遭遇しても修正して続行する
+
+2. **Enhanced TodoTool Instructions**:
+   - いつ使うか、使わないかの明確なガイドライン
+   - 詳細な使用プロセス（7ステップ）
+   - 重要な持続性ルール（pending todosがある限り作業を続ける）
+   - 具体的なタスク分解の例
+
+3. **Work Persistence Section**:
+   - 早期に作業を止めない
+   - エラーを修正して続行する
+   - 作業を検証する
+   - 一般的なパターンの説明
+
+4. **Response Guidelines**:
+   - TodoListが全て完了するまで「完了」と言わない
+   - エラーに遭遇しても修正して続行
+   - リクエストの全ての側面を完了してから停止
+
+これらの改善により、Groqは複雑なタスクでも最後まで作業を続けるようになります。
