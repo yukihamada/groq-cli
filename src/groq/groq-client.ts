@@ -113,6 +113,10 @@ export class GroqClient {
         // Check if this is a tool call validation error
         if (error.message?.includes('tool call validation failed') && i < this.fallbackModels.length - 1) {
           console.error(`Model ${modelToUse} returned malformed tool calls. Trying next model...`);
+          // Log more details in debug mode
+          if (process.env.DEBUG) {
+            console.error(`Error details: ${error.message}`);
+          }
           continue;
         }
         
@@ -122,8 +126,12 @@ export class GroqClient {
           continue;
         }
 
-        // For other errors or if this is the last model, throw
+        // For other errors or if this is the last model
         if (i === this.fallbackModels.length - 1) {
+          // If all models failed with tool calls, suggest using simple mode
+          if (error.message?.includes('tool call validation failed')) {
+            throw new Error(`All models failed with tool calls. Try using simple mode with -s flag for more reliable operation.`);
+          }
           throw new Error(`Groq API error after trying all models: ${error.message}`);
         }
       }

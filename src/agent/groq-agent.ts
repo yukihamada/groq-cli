@@ -273,8 +273,10 @@ Current working directory: ${process.cwd()}`;
         if (!assistantMessage.tool_calls && assistantMessage.content) {
           const parsedCalls = this.parseTextToolCalls(assistantMessage.content);
           if (parsedCalls) {
-            console.log(`Parsed malformed tool call from content: ${assistantMessage.content}`);
+            console.log(`Successfully parsed malformed tool call`);
             assistantMessage.tool_calls = parsedCalls;
+          } else if (assistantMessage.content.includes('<function') || assistantMessage.content.includes('function.')) {
+            console.log(`Detected tool call pattern but failed to parse: ${assistantMessage.content.substring(0, 200)}`);
           }
         }
 
@@ -417,6 +419,11 @@ Current working directory: ${process.cwd()}`;
       /^([a-zA-Z_]\w*)\(({[^}]+})\)/,                              // tool_name({...})
       /<function>([a-zA-Z_]\w*)\s*({[^}]+})<\/function>/,          // <function>tool_name {...}</function>
       /<([a-zA-Z_]\w*)>({[^}]+})<\/\1>/,                           // <tool_name>{...}</tool_name>
+      /<function=([a-zA-Z_]\w*)\s*\[({[^}]+})\]/,                  // <function=tool_name [{...}]>
+      /<function=([a-zA-Z_]\w*)\s*\(({[^}]+})\)/,                  // <function=tool_name ({...})>
+      /function\.([a-zA-Z_]\w*)\(({[^}]+})\)/,                     // function.tool_name({...})
+      /<function\s+([a-zA-Z_]\w*)\s*({[^}]+})>/,                   // <function tool_name {...}>
+      /^<function=([a-zA-Z_]\w*)\s*({.*?})(?:command:)?>/m,        // <function=bash {"command": "ls"}command:>
     ];
     
     for (const pattern of patterns) {
@@ -447,6 +454,14 @@ Current working directory: ${process.cwd()}`;
             args = args.slice(1, -1);
           }
           
+          // Remove trailing characters like ']' or ')' that might be part of the pattern
+          args = args.replace(/[\]\)]+$/, '');
+          
+          // Attempt to fix incomplete JSON
+          if (!args.endsWith('}')) {
+            args += '}';
+          }
+          
           // Validate JSON
           JSON.parse(args);
           
@@ -462,7 +477,14 @@ Current working directory: ${process.cwd()}`;
           // Try to fix common JSON errors
           try {
             // Add quotes to unquoted keys
-            const fixedArgs = args.replace(/([{,]\s*)([a-zA-Z_]\w*)(\s*:)/g, '$1"$2"$3');
+            let fixedArgs = args.replace(/([{,]\s*)([a-zA-Z_]\w*)(\s*:)/g, '$1"$2"$3');
+            
+            // Fix single quotes to double quotes
+            fixedArgs = fixedArgs.replace(/'/g, '"');
+            
+            // Remove any trailing commas before closing braces
+            fixedArgs = fixedArgs.replace(/,\s*}/g, '}');
+            
             JSON.parse(fixedArgs);
             
             return [{
@@ -474,7 +496,7 @@ Current working directory: ${process.cwd()}`;
               }
             }];
           } catch (e2) {
-            console.error(`Failed to parse tool arguments: ${args}`);
+            console.error(`Failed to parse tool arguments for ${toolName}: ${args}`);
           }
         }
       }
@@ -643,6 +665,17 @@ Current working directory: ${process.cwd()}`;
               type: "token_count",
               tokenCount: inputTokens + totalOutputTokens,
             };
+          }
+        }
+
+        // Try to parse malformed tool calls if needed
+        if (!accumulatedMessage.tool_calls && accumulatedMessage.content) {
+          const parsedCalls = this.parseTextToolCalls(accumulatedMessage.content);
+          if (parsedCalls) {
+            console.log(`Successfully parsed malformed tool call in stream`);
+            accumulatedMessage.tool_calls = parsedCalls;
+          } else if (accumulatedMessage.content.includes('<function') || accumulatedMessage.content.includes('function.')) {
+            console.log(`Detected tool call pattern in stream but failed to parse: ${accumulatedMessage.content.substring(0, 200)}`);
           }
         }
 
